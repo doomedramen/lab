@@ -1,0 +1,283 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// AuthService provides authentication and authorization functionality
+service AuthService {
+  // User authentication
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+
+  // MFA management
+  rpc SetupMFA(SetupMFARequest) returns (SetupMFAResponse);
+  rpc EnableMFA(EnableMFARequest) returns (EnableMFAResponse);
+  rpc DisableMFA(DisableMFARequest) returns (DisableMFAResponse);
+  rpc VerifyMFACode(VerifyMFACodeRequest) returns (VerifyMFACodeResponse);
+
+  // API Key management
+  rpc CreateAPIKey(CreateAPIKeyRequest) returns (CreateAPIKeyResponse);
+  rpc ListAPIKeys(ListAPIKeysRequest) returns (ListAPIKeysResponse);
+  rpc RevokeAPIKey(RevokeAPIKeyRequest) returns (RevokeAPIKeyResponse);
+
+  // User management
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse);
+  rpc UpdateCurrentUser(UpdateCurrentUserRequest) returns (UpdateCurrentUserResponse);
+
+  // Session management
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  rpc RevokeOtherSessions(RevokeOtherSessionsRequest) returns (RevokeOtherSessionsResponse);
+
+  // Audit log (admin only)
+  rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
+}
+
+// UserRole represents the user's role in the system
+enum UserRole {
+  USER_ROLE_UNSPECIFIED = 0;
+  USER_ROLE_VIEWER = 1;    // Read-only access
+  USER_ROLE_OPERATOR = 2;  // Can start/stop VMs
+  USER_ROLE_ADMIN = 3;     // Full access
+}
+
+// User represents a user account
+message User {
+  string id = 1;
+  string email = 2;
+  UserRole role = 3;
+  bool mfa_enabled = 4;
+  bool is_active = 5;
+  string created_at = 6;
+  string updated_at = 7;
+  string last_login_at = 8;
+}
+
+// RegisterRequest is the request message for user registration
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  UserRole role = 3;
+}
+
+// RegisterResponse is the response message for user registration
+message RegisterResponse {
+  User user = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+}
+
+// LoginRequest is the request message for user login
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string mfa_code = 3;  // Optional TOTP code
+}
+
+// LoginResponse is the response message for user login
+message LoginResponse {
+  User user = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  bool mfa_required = 4;
+}
+
+// LogoutRequest is the request message for user logout
+message LogoutRequest {
+}
+
+// LogoutResponse is the response message for user logout
+message LogoutResponse {
+  bool success = 1;
+}
+
+// RefreshTokenRequest is the request message for token refresh
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+// RefreshTokenResponse is the response message for token refresh
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+// SetupMFARequest is the request message for MFA setup
+message SetupMFARequest {
+}
+
+// SetupMFAResponse is the response message for MFA setup
+message SetupMFAResponse {
+  string secret = 1;         // TOTP secret (for QR code generation)
+  string qr_code_url = 2;    // URL for QR code
+  string manual_key = 3;     // Formatted key for manual entry
+  repeated string backup_codes = 4;  // One-time backup codes
+}
+
+// EnableMFARequest is the request message for enabling MFA
+message EnableMFARequest {
+  string mfa_code = 1;  // TOTP code to verify
+}
+
+// EnableMFAResponse is the response message for enabling MFA
+message EnableMFAResponse {
+  bool success = 1;
+}
+
+// DisableMFARequest is the request message for disabling MFA
+message DisableMFARequest {
+  string mfa_code = 1;  // TOTP or backup code to verify
+}
+
+// DisableMFAResponse is the response message for disabling MFA
+message DisableMFAResponse {
+  bool success = 1;
+}
+
+// VerifyMFACodeRequest is the request message for verifying a TOTP code
+message VerifyMFACodeRequest {
+  string mfa_code = 1;
+}
+
+// VerifyMFACodeResponse is the response message for TOTP verification
+message VerifyMFACodeResponse {
+  bool valid = 1;
+}
+
+// APIKey represents an API key for automation
+message APIKey {
+  string id = 1;
+  string name = 2;
+  string prefix = 3;           // First chars of the key for identification
+  repeated string permissions = 4;  // List of permissions
+  string last_used_at = 5;
+  string expires_at = 6;
+  string created_at = 7;
+}
+
+// CreateAPIKeyRequest is the request message for creating an API key
+message CreateAPIKeyRequest {
+  string name = 1;
+  repeated string permissions = 2;  // e.g., ["vm:read", "vm:start"]
+  string expires_at = 3;            // Optional ISO 8601 format
+}
+
+// CreateAPIKeyResponse is the response message for creating an API key
+message CreateAPIKeyResponse {
+  APIKey api_key = 1;
+  string raw_key = 2;  // Shown only once!
+}
+
+// ListAPIKeysRequest is the request message for listing API keys
+message ListAPIKeysRequest {
+}
+
+// ListAPIKeysResponse is the response message for listing API keys
+message ListAPIKeysResponse {
+  repeated APIKey api_keys = 1;
+}
+
+// RevokeAPIKeyRequest is the request message for revoking an API key
+message RevokeAPIKeyRequest {
+  string id = 1;
+}
+
+// RevokeAPIKeyResponse is the response message for revoking an API key
+message RevokeAPIKeyResponse {
+  bool success = 1;
+}
+
+// GetCurrentUserRequest is the request message for getting current user
+message GetCurrentUserRequest {
+}
+
+// GetCurrentUserResponse is the response message for getting current user
+message GetCurrentUserResponse {
+  User user = 1;
+}
+
+// UpdateCurrentUserRequest is the request message for updating current user
+message UpdateCurrentUserRequest {
+  string email = 1;
+  string current_password = 2;  // Required for password change
+  string new_password = 3;      // Optional new password
+}
+
+// UpdateCurrentUserResponse is the response message for updating current user
+message UpdateCurrentUserResponse {
+  User user = 1;
+}
+
+// AuditLogEntry represents a single audit log record
+message AuditLogEntry {
+  string id = 1;
+  string user_id = 2;
+  string action = 3;
+  string resource_type = 4;
+  string resource_id = 5;
+  string details = 6;       // JSON-encoded details map
+  string ip_address = 7;
+  string user_agent = 8;
+  string status = 9;        // "success" or "failure"
+  string created_at = 10;
+}
+
+// ListAuditLogsRequest is the request message for listing audit logs
+message ListAuditLogsRequest {
+  string user_id = 1;   // Optional: filter by user ID
+  string action = 2;    // Optional: filter by action
+  int32  limit = 3;     // Default 50, max 500
+  int32  offset = 4;    // Pagination offset
+}
+
+// ListAuditLogsResponse is the response message for listing audit logs
+message ListAuditLogsResponse {
+  repeated AuditLogEntry logs = 1;
+  int64 total = 2;
+}
+
+// Session represents an active user session
+message Session {
+  string id = 1;
+  string user_id = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+  string device_name = 5;
+  string issued_at = 6;
+  string last_seen_at = 7;
+  string expires_at = 8;
+  bool is_current = 9;  // True if this is the current session
+}
+
+// ListSessionsRequest is the request message for listing sessions
+message ListSessionsRequest {
+}
+
+// ListSessionsResponse is the response message for listing sessions
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+// RevokeSessionRequest is the request message for revoking a session
+message RevokeSessionRequest {
+  string session_id = 1;
+}
+
+// RevokeSessionResponse is the response message for revoking a session
+message RevokeSessionResponse {
+  bool success = 1;
+}
+
+// RevokeOtherSessionsRequest is the request message for revoking all other sessions
+message RevokeOtherSessionsRequest {
+}
+
+// RevokeOtherSessionsResponse is the response message for revoking all other sessions
+message RevokeOtherSessionsResponse {
+  int32 revoked_count = 1;
+}

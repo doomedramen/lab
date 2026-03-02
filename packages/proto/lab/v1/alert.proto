@@ -1,0 +1,248 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+service AlertService {
+  // Notification channels
+  rpc CreateNotificationChannel(CreateNotificationChannelRequest) returns (CreateNotificationChannelResponse);
+  rpc GetNotificationChannel(GetNotificationChannelRequest) returns (GetNotificationChannelResponse);
+  rpc ListNotificationChannels(ListNotificationChannelsRequest) returns (ListNotificationChannelsResponse);
+  rpc UpdateNotificationChannel(UpdateNotificationChannelRequest) returns (UpdateNotificationChannelResponse);
+  rpc DeleteNotificationChannel(DeleteNotificationChannelRequest) returns (DeleteNotificationChannelResponse);
+
+  // Alert rules
+  rpc CreateAlertRule(CreateAlertRuleRequest) returns (CreateAlertRuleResponse);
+  rpc GetAlertRule(GetAlertRuleRequest) returns (GetAlertRuleResponse);
+  rpc ListAlertRules(ListAlertRulesRequest) returns (ListAlertRulesResponse);
+  rpc UpdateAlertRule(UpdateAlertRuleRequest) returns (UpdateAlertRuleResponse);
+  rpc DeleteAlertRule(DeleteAlertRuleRequest) returns (DeleteAlertRuleResponse);
+
+  // Fired alerts
+  rpc GetAlert(GetAlertRequest) returns (GetAlertResponse);
+  rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse);
+  rpc AcknowledgeAlert(AcknowledgeAlertRequest) returns (AcknowledgeAlertResponse);
+  rpc ResolveAlert(ResolveAlertRequest) returns (ResolveAlertResponse);
+}
+
+// AlertRuleType represents the type of alert rule
+enum AlertRuleType {
+  ALERT_RULE_TYPE_UNSPECIFIED = 0;
+  ALERT_RULE_TYPE_STORAGE_POOL_USAGE = 1;
+  ALERT_RULE_TYPE_VM_STOPPED = 2;
+  ALERT_RULE_TYPE_BACKUP_FAILED = 3;
+  ALERT_RULE_TYPE_NODE_OFFLINE = 4;
+  ALERT_RULE_TYPE_CPU_USAGE = 5;
+  ALERT_RULE_TYPE_MEMORY_USAGE = 6;
+}
+
+// NotificationChannelType represents the type of notification channel
+enum NotificationChannelType {
+  NOTIFICATION_CHANNEL_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_CHANNEL_TYPE_EMAIL = 1;
+  NOTIFICATION_CHANNEL_TYPE_WEBHOOK = 2;
+}
+
+// AlertSeverity represents the severity level of an alert
+enum AlertSeverity {
+  ALERT_SEVERITY_UNSPECIFIED = 0;
+  ALERT_SEVERITY_INFO = 1;
+  ALERT_SEVERITY_WARNING = 2;
+  ALERT_SEVERITY_CRITICAL = 3;
+}
+
+// AlertStatus represents the status of a fired alert
+enum AlertStatus {
+  ALERT_STATUS_UNSPECIFIED = 0;
+  ALERT_STATUS_OPEN = 1;
+  ALERT_STATUS_ACKNOWLEDGED = 2;
+  ALERT_STATUS_RESOLVED = 3;
+}
+
+// NotificationChannel represents a notification destination
+message NotificationChannel {
+  string id = 1;
+  string name = 2;
+  NotificationChannelType type = 3;
+  map<string, string> config = 4;
+  bool enabled = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+// AlertRule represents an alert rule configuration
+message AlertRule {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  AlertRuleType type = 4;
+  optional double threshold = 5;
+  int32 duration_minutes = 6;
+  string entity_type = 7;
+  string entity_id = 8;
+  string channel_id = 9;
+  bool enabled = 10;
+  optional string last_triggered_at = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+// Alert represents a fired alert
+message Alert {
+  string id = 1;
+  string rule_id = 2;
+  string rule_name = 3;
+  string entity_type = 4;
+  string entity_id = 5;
+  string entity_name = 6;
+  string message = 7;
+  AlertSeverity severity = 8;
+  AlertStatus status = 9;
+  string fired_at = 10;
+  optional string acknowledged_at = 11;
+  string acknowledged_by = 12;
+  optional string resolved_at = 13;
+  map<string, string> metadata = 14;
+}
+
+// --- Notification Channel RPCs ---
+
+message CreateNotificationChannelRequest {
+  string name = 1;
+  NotificationChannelType type = 2;
+  map<string, string> config = 3;
+}
+
+message CreateNotificationChannelResponse {
+  NotificationChannel channel = 1;
+}
+
+message GetNotificationChannelRequest {
+  string id = 1;
+}
+
+message GetNotificationChannelResponse {
+  NotificationChannel channel = 1;
+}
+
+message ListNotificationChannelsRequest {}
+
+message ListNotificationChannelsResponse {
+  repeated NotificationChannel channels = 1;
+}
+
+message UpdateNotificationChannelRequest {
+  string id = 1;
+  optional string name = 2;
+  map<string, string> config = 3;
+  optional bool enabled = 4;
+}
+
+message UpdateNotificationChannelResponse {
+  NotificationChannel channel = 1;
+}
+
+message DeleteNotificationChannelRequest {
+  string id = 1;
+}
+
+message DeleteNotificationChannelResponse {}
+
+// --- Alert Rule RPCs ---
+
+message CreateAlertRuleRequest {
+  string name = 1;
+  string description = 2;
+  AlertRuleType type = 3;
+  optional double threshold = 4;
+  int32 duration_minutes = 5;
+  string entity_type = 6;
+  string entity_id = 7;
+  string channel_id = 8;
+  bool enabled = 9;
+}
+
+message CreateAlertRuleResponse {
+  AlertRule rule = 1;
+}
+
+message GetAlertRuleRequest {
+  string id = 1;
+}
+
+message GetAlertRuleResponse {
+  AlertRule rule = 1;
+}
+
+message ListAlertRulesRequest {
+  bool enabled_only = 1;
+}
+
+message ListAlertRulesResponse {
+  repeated AlertRule rules = 1;
+}
+
+message UpdateAlertRuleRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional double threshold = 4;
+  optional int32 duration_minutes = 5;
+  optional string entity_type = 6;
+  optional string entity_id = 7;
+  optional string channel_id = 8;
+  optional bool enabled = 9;
+}
+
+message UpdateAlertRuleResponse {
+  AlertRule rule = 1;
+}
+
+message DeleteAlertRuleRequest {
+  string id = 1;
+}
+
+message DeleteAlertRuleResponse {}
+
+// --- Fired Alert RPCs ---
+
+message GetAlertRequest {
+  string id = 1;
+}
+
+message GetAlertResponse {
+  Alert alert = 1;
+}
+
+message ListAlertsRequest {
+  AlertStatus status = 1;
+  AlertSeverity severity = 2;
+  string rule_id = 3;
+  string entity_type = 4;
+  string entity_id = 5;
+  bool open_only = 6;
+}
+
+message ListAlertsResponse {
+  repeated Alert alerts = 1;
+  int32 total = 2;
+}
+
+message AcknowledgeAlertRequest {
+  string id = 1;
+}
+
+message AcknowledgeAlertResponse {
+  Alert alert = 1;
+}
+
+message ResolveAlertRequest {
+  string id = 1;
+}
+
+message ResolveAlertResponse {
+  Alert alert = 1;
+}

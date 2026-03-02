@@ -1,0 +1,55 @@
+# Lab Infrastructure Dashboard Configuration
+# Docker test configuration - uses mock libvirt
+
+server:
+  port: "8080"
+  env: "test"
+
+# Backend type: "libvirt" or "mock"
+backend: "mock"
+
+# Libvirt connection settings (not used in mock mode)
+libvirt:
+  uri: "qemu:///session"
+
+# Storage configuration
+storage:
+  iso_dir: "/tmp/isos"
+  vm_disk_dir: "/tmp/disks"
+  max_iso_size: 53687091200
+  allowed_extensions:
+    - ".iso"
+
+# VM defaults
+vm_defaults:
+  disk_format: "qcow2"
+  disk_bus: "virtio"
+  emulator_path: ""
+  emulator_paths:
+    x86_64: "/usr/bin/qemu-system-x86_64"
+    aarch64: "/usr/bin/qemu-system-aarch64"
+  ovmf_path: ""
+
+# Upload configuration
+upload:
+  chunk_size: 52428800
+  retry_delays:
+    - 0
+    - 1000
+    - 3000
+    - 5000
+
+# Logging
+logging:
+  level: "debug"
+  format: "text"
+
+# Authentication
+auth:
+  jwt_secret: "test-secret-key-change-in-production"
+  access_token_expiry: "15m"
+  refresh_token_expiry: "168h"
+  issuer: "lab-api"
+  mfa:
+    issuer_name: "Lab"
+    required_for_admin: false

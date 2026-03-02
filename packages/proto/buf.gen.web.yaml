@@ -1,0 +1,7 @@
+version: v2
+inputs:
+  - directory: .
+plugins:
+  - local: ../../apps/web/node_modules/.bin/protoc-gen-es
+    out: ../../apps/web/lib/gen
+    opt: [target=ts]

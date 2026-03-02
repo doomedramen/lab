@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// TaskService provides async task tracking operations
+service TaskService {
+  // ListTasks returns all tasks with optional filters
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  // GetTask returns details of a specific task
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  // CancelTask cancels a running task
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+}
+
+// TaskType represents the type of async operation
+enum TaskType {
+  TASK_TYPE_UNSPECIFIED = 0;
+  TASK_TYPE_BACKUP = 1;
+  TASK_TYPE_RESTORE = 2;
+  TASK_TYPE_SNAPSHOT_CREATE = 3;
+  TASK_TYPE_SNAPSHOT_DELETE = 4;
+  TASK_TYPE_SNAPSHOT_RESTORE = 5;
+  TASK_TYPE_CLONE = 6;
+  TASK_TYPE_MIGRATION = 7;
+  TASK_TYPE_IMPORT = 8;
+  TASK_TYPE_EXPORT = 9;
+}
+
+// TaskStatus represents the status of a task
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_PENDING = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_FAILED = 4;
+  TASK_STATUS_CANCELLED = 5;
+}
+
+// ResourceType represents the type of resource a task operates on
+enum ResourceType {
+  RESOURCE_TYPE_UNSPECIFIED = 0;
+  RESOURCE_TYPE_VM = 1;
+  RESOURCE_TYPE_CONTAINER = 2;
+  RESOURCE_TYPE_STACK = 3;
+  RESOURCE_TYPE_BACKUP = 4;
+  RESOURCE_TYPE_SNAPSHOT = 5;
+  RESOURCE_TYPE_ISO = 6;
+  RESOURCE_TYPE_NETWORK = 7;
+  RESOURCE_TYPE_STORAGE = 8;
+}
+
+// Task represents an async operation that can be tracked
+message Task {
+  string id = 1;
+  TaskType type = 2;
+  TaskStatus status = 3;
+  int32 progress = 4;
+  string message = 5;
+  ResourceType resource_type = 6;
+  string resource_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  google.protobuf.Timestamp completed_at = 10;
+  string error = 11;
+}
+
+// ListTasksRequest is the request for ListTasks
+message ListTasksRequest {
+  TaskStatus status = 1;
+  TaskType type = 2;
+  ResourceType resource_type = 3;
+  string resource_id = 4;
+  bool active_only = 5;
+}
+
+// ListTasksResponse contains a list of tasks
+message ListTasksResponse {
+  repeated Task tasks = 1;
+}
+
+// GetTaskRequest is the request for GetTask
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+// GetTaskResponse contains task details
+message GetTaskResponse {
+  Task task = 1;
+}
+
+// CancelTaskRequest cancels a running task
+message CancelTaskRequest {
+  string task_id = 1;
+}
+
+// CancelTaskResponse confirms cancellation
+message CancelTaskResponse {
+  Task task = 1;
+}

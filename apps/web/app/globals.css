@@ -1,0 +1,11 @@
+/* Import base from packages/ui — brings @tailwindcss, @source, @theme inline */
+@import '@workspace/ui/globals.css';
+
+/* Uppy upload styles */
+@import '@uppy/core/css/style.min.css';
+
+/* Override font theme variables */
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+}

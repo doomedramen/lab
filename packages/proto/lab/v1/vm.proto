@@ -1,0 +1,433 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+service VmService {
+  rpc ListVMs(ListVMsRequest) returns (ListVMsResponse);
+  rpc GetVM(GetVMRequest) returns (GetVMResponse);
+  rpc CreateVM(CreateVMRequest) returns (CreateVMResponse);
+  rpc UpdateVM(UpdateVMRequest) returns (UpdateVMResponse);
+  rpc DeleteVM(DeleteVMRequest) returns (DeleteVMResponse);
+  rpc CloneVM(CloneVMRequest) returns (CloneVMResponse);
+  rpc StartVM(VmActionRequest) returns (ActionResponse);
+  rpc StopVM(VmActionRequest) returns (ActionResponse);
+  rpc PauseVM(VmActionRequest) returns (ActionResponse);
+  rpc ResumeVM(VmActionRequest) returns (ActionResponse);
+  rpc ShutdownVM(VmActionRequest) returns (ActionResponse);
+  rpc RebootVM(VmActionRequest) returns (ActionResponse);
+  rpc GetVMConsole(GetVMConsoleRequest) returns (GetVMConsoleResponse);
+  rpc ListVMTemplates(ListVMTemplatesRequest) returns (ListVMTemplatesResponse);
+  rpc GetVMLogs(GetVMLogsRequest) returns (GetVMLogsResponse);
+  rpc StreamVMLogs(StreamVMLogsRequest) returns (stream VMLogEntry);
+  rpc GetVMDiagnostics(GetVMDiagnosticsRequest) returns (GetVMDiagnosticsResponse);
+  // Guest Agent
+  rpc GetVMGuestNetworkInterfaces(GetVMGuestNetworkInterfacesRequest) returns (GetVMGuestNetworkInterfacesResponse);
+  // PCI Devices
+  rpc ListPCIDevices(ListPCIDevicesRequest) returns (ListPCIDevicesResponse);
+}
+
+// VmStatus represents the operational status of a VM
+enum VmStatus {
+  VM_STATUS_UNSPECIFIED = 0;
+  VM_STATUS_RUNNING = 1;
+  VM_STATUS_STOPPED = 2;
+  VM_STATUS_PAUSED = 3;
+  VM_STATUS_SUSPENDED = 4;
+}
+
+message VM {
+  string id = 1;
+  int32 vmid = 2;
+  string name = 3;
+  string node = 4;
+  VmStatus status = 5;
+  CpuInfoPartial cpu = 6;
+  MemoryInfo memory = 7;
+  DiskInfo disk = 8;
+  string uptime = 9;
+  OsConfig os = 10;
+  string arch = 11;
+  MachineType machine_type = 12;
+  BiosType bios = 13;
+  string cpu_model = 14;
+  repeated NetworkConfig network = 15;
+  string ip = 16;
+  repeated string tags = 17;
+  bool ha = 18;
+  string description = 19;
+  bool nested_virt = 20;
+  bool start_on_boot = 21;
+  bool agent = 22;
+  bool tpm = 23;                    // TPM 2.0 device enabled
+  bool secure_boot = 24;            // Secure Boot enabled (requires OVMF)
+  repeated PCIDevice pci_devices = 25; // PCI passthrough devices
+  repeated string boot_order = 26;  // Boot device priority (e.g., ["hd", "cdrom", "network"])
+}
+
+message ListVMsRequest {
+  // empty = all nodes
+  string node = 1;
+}
+
+message ListVMsResponse {
+  repeated VM vms = 1;
+}
+
+message GetVMRequest {
+  int32 vmid = 1;
+}
+
+message GetVMResponse {
+  VM vm = 1;
+}
+
+message CreateVMRequest {
+  // General
+  string name = 1;
+  string node = 2;
+  repeated string tags = 3;
+  string description = 4;
+  bool start_on_boot = 5;
+
+  // OS
+  OsConfig os = 6;
+
+  // System
+  string arch = 7;
+  MachineType machine_type = 8;
+  BiosType bios = 9;
+  bool agent = 10;
+
+  // Disks
+  string iso = 11;
+  string iso_url = 12;
+  string iso_name = 13;
+  double disk_gb = 14;
+
+  // CPU
+  int32 cpu_sockets = 15;
+  int32 cpu_cores = 16;
+  string cpu_model = 17;
+  bool nested_virt = 18;
+
+  // Memory
+  double memory_gb = 19;
+
+  // Network
+  repeated NetworkConfig network = 20;
+
+  // Security
+  bool tpm = 21;                    // TPM 2.0 device (requires OVMF)
+  bool secure_boot = 22;            // Secure Boot (requires OVMF)
+
+  // PCI Passthrough
+  repeated string pci_device_addresses = 23; // PCI addresses to pass through (e.g., "0000:01:00.0")
+
+  // Boot order - devices to boot from in priority order (e.g., ["hd", "cdrom", "network"])
+  repeated string boot_order = 24;
+}
+
+message CreateVMResponse {
+  VM vm = 1;
+}
+
+// CloneVMRequest is the request message for cloning a VM
+message CloneVMRequest {
+  int32 source_vmid = 1;           // VMID of the source VM to clone
+  string name = 2;                 // Name for the cloned VM
+  bool full = 3;                   // true = full clone (independent copy), false = linked clone (uses backing file)
+  string target_pool = 4;          // Storage pool for new disks (empty = same as source)
+  string description = 5;          // Optional description for the clone
+  bool start_after_clone = 6;      // Start the clone immediately after creation
+}
+
+// CloneVMResponse is the response message for cloning a VM
+message CloneVMResponse {
+  VM vm = 1;                       // The cloned VM
+  string task_id = 2;              // Task ID for tracking clone progress
+}
+
+message UpdateVMRequest {
+  int32 vmid = 1;
+
+  // Live updates (no restart required)
+  string name = 2;
+  string description = 6;
+  repeated string tags = 5;
+
+  // Offline updates (VM must be stopped)
+  int32 cpu_sockets = 7;
+  int32 cpu_cores = 3;
+  double memory_gb = 4;
+  bool agent = 8;
+  bool nested_virt = 9;
+  bool start_on_boot = 10;
+  bool tpm = 11;                    // TPM 2.0 device (requires OVMF)
+  bool secure_boot = 12;            // Secure Boot (requires OVMF)
+  repeated string boot_order = 13;  // Boot device priority (e.g., ["hd", "cdrom", "network"])
+}
+
+message UpdateVMResponse {
+  VM vm = 1;
+}
+
+message DeleteVMRequest {
+  int32 vmid = 1;
+}
+
+message DeleteVMResponse {}
+
+message VmActionRequest {
+  int32 vmid = 1;
+}
+
+// ConsoleType represents the type of console access
+enum ConsoleType {
+  CONSOLE_TYPE_UNSPECIFIED = 0;
+  CONSOLE_TYPE_SERIAL = 1;     // Serial console (text-based, PTY)
+  CONSOLE_TYPE_VNC = 2;        // VNC console (GUI, via Go WebSocket proxy)
+  CONSOLE_TYPE_WEBSOCKIFY = 3; // VNC console (GUI, via websockify)
+}
+
+message GetVMConsoleRequest {
+  int32 vmid = 1;
+  ConsoleType console_type = 2; // Type of console requested
+}
+
+message GetVMConsoleResponse {
+  string websocket_url = 1;
+  string token = 2;
+  ConsoleType console_type = 3; // Type of console provided
+}
+
+message ListVMTemplatesRequest {}
+
+message ListVMTemplatesResponse {
+  repeated VMTemplate templates = 1;
+}
+
+// VMTemplate represents a pre-configured VM template with ISO URL and resource presets
+message VMTemplate {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string icon = 4;
+  
+  // ISO configuration
+  string iso_url = 5;
+  string iso_name = 6;
+  
+  // Resource presets
+  int32 cpu_cores = 7;
+  double memory_gb = 8;
+  double disk_gb = 9;
+
+  // OS information
+  OsConfig os = 10;
+
+  // Optional: architecture (defaults to x86_64)
+  string arch = 11;
+}
+
+// VMLogLevel represents the severity level of a log entry
+enum VMLogLevel {
+  VM_LOG_LEVEL_UNSPECIFIED = 0;
+  VM_LOG_LEVEL_DEBUG = 1;
+  VM_LOG_LEVEL_INFO = 2;
+  VM_LOG_LEVEL_WARNING = 3;
+  VM_LOG_LEVEL_ERROR = 4;
+  VM_LOG_LEVEL_CRITICAL = 5;
+}
+
+// VMLogEntry represents a single log entry from a VM
+message VMLogEntry {
+  string id = 1;
+  int32 vmid = 2;
+  VMLogLevel level = 3;
+  string timestamp = 4;
+  string source = 5;  // e.g., "qemu", "cloud-init", "kernel", "systemd"
+  string message = 6;
+  
+  // Optional structured data
+  map<string, string> metadata = 7;
+}
+
+// GetVMLogsRequest is the request message for retrieving VM logs
+message GetVMLogsRequest {
+  int32 vmid = 1;
+  int32 limit = 2;  // Number of entries to return (default: 100)
+  VMLogLevel min_level = 3;  // Minimum log level to include
+  string source = 4;  // Filter by source (empty = all sources)
+  string start_time = 5;  // Filter by start time (RFC3339)
+  string end_time = 6;  // Filter by end time (RFC3339)
+}
+
+// GetVMLogsResponse is the response message containing VM log entries
+message GetVMLogsResponse {
+  repeated VMLogEntry entries = 1;
+  int32 total = 2;  // Total number of entries matching filters
+}
+
+// StreamVMLogsRequest is the request message for streaming VM logs
+message StreamVMLogsRequest {
+  int32 vmid = 1;
+  VMLogLevel min_level = 2;  // Minimum log level to include
+  string source = 3;  // Filter by source (empty = all sources)
+  bool follow = 4;  // If true, keep the stream open for new entries
+}
+
+// GetVMDiagnosticsRequest requests detailed diagnostic information for a VM
+message GetVMDiagnosticsRequest {
+  int32 vmid = 1;
+}
+
+// VMDiagnostics contains comprehensive diagnostic information about a VM
+message VMDiagnostics {
+  // Basic domain info (from virsh dominfo)
+  DomainInfo info = 1;
+  
+  // Full XML configuration (from virsh dumpxml)
+  string xml_config = 2;
+  
+  // Network interfaces (from virsh domifaddr)
+  repeated NetworkInterface network_interfaces = 3;
+  
+  // Disk information
+  repeated DiskDeviceInfo disks = 4;
+  
+  // QEMU monitor info (VNC, chardev, etc.)
+  QemuMonitorInfo qemu_monitor = 5;
+  
+  // Host system info
+  HostInfo host = 6;
+}
+
+// DomainInfo contains basic domain information
+message DomainInfo {
+  int32 id = 1;                    // Libvirt domain ID
+  string name = 2;                 // Domain name
+  string uuid = 3;                 // Domain UUID
+  string os_type = 4;              // OS type (hvm, etc.)
+  string state = 5;                // Current state
+  int32 max_memory_kb = 6;         // Max memory in KB
+  int32 used_memory_kb = 7;        // Current memory usage in KB
+  int32 cpu_count = 8;             // Number of CPUs
+  string autostart = 9;            // Autostart setting
+  string persistent = 10;          // Persistent yes/no
+}
+
+// NetworkInterface contains network interface information
+message NetworkInterface {
+  string name = 1;                 // Interface name (e.g., vnet0)
+  string mac_address = 2;          // MAC address
+  string protocol = 3;             // Protocol (ipv4, ipv6)
+  string address = 4;              // IP address
+  string prefix = 5;               // Network prefix
+}
+
+// DiskInfo contains disk information (note: different from common.DiskInfo)
+message DiskDeviceInfo {
+  string target_dev = 1;           // Target device (e.g., vda)
+  string source_file = 2;          // Source file path
+  string driver_type = 3;          // Driver type (qcow2, raw)
+  string bus = 4;                  // Bus type (virtio, ide)
+  int64 capacity = 5;              // Capacity in bytes
+  int64 allocation = 6;            // Allocated space in bytes
+  int64 physical = 7;              // Physical size in bytes
+}
+
+// QemuMonitorInfo contains QEMU monitor information
+message QemuMonitorInfo {
+  string vnc_server = 1;           // VNC server address
+  int32 vnc_port = 2;              // VNC port
+  string vnc_auth = 3;             // VNC authentication type
+  repeated CharDevice char_devices = 4;  // Character devices (serial, console)
+}
+
+// CharDevice contains character device information
+message CharDevice {
+  string name = 1;                 // Device name
+  string type = 2;                 // Device type (pty, file, etc.)
+  string source_path = 3;          // Source path (for pty, file)
+  string backend = 4;              // Backend type
+}
+
+// HostInfo contains host system information
+message HostInfo {
+  string hostname = 1;             // Hostname
+  string arch = 2;                 // Architecture
+  string os_name = 3;              // OS name
+  string os_version = 4;           // OS version
+  string libvirt_uri = 5;          // Libvirt URI
+  string libvirt_version = 6;      // Libvirt version
+  string qemu_version = 7;         // QEMU version
+}
+
+// GetVMDiagnosticsResponse contains the diagnostic information
+message GetVMDiagnosticsResponse {
+  VMDiagnostics diagnostics = 1;
+}
+
+// --- Guest Agent ---
+
+// GetVMGuestNetworkInterfacesRequest requests network interfaces from the guest agent
+message GetVMGuestNetworkInterfacesRequest {
+  int32 vmid = 1;
+}
+
+// GuestNetworkInterface represents a network interface from the guest agent
+message GuestNetworkInterface {
+  string name = 1;                    // Interface name (e.g., "eth0", "ens3")
+  string mac_address = 2;             // Hardware/MAC address
+  repeated GuestIPAddress ip_addresses = 3; // List of IP addresses
+}
+
+// GuestIPAddress represents an IP address from the guest agent
+message GuestIPAddress {
+  string address = 1;                 // IP address (e.g., "192.168.1.100")
+  int32 prefix = 2;                   // Network prefix/CIDR (e.g., 24)
+  string address_type = 3;            // "ipv4" or "ipv6"
+}
+
+// GetVMGuestNetworkInterfacesResponse contains guest network interfaces
+message GetVMGuestNetworkInterfacesResponse {
+  repeated GuestNetworkInterface interfaces = 1;
+  bool agent_connected = 2;           // Whether the guest agent is connected
+}
+
+// --- PCI Devices ---
+
+// PCIDevice represents a PCI device on the host or attached to a VM
+message PCIDevice {
+  string address = 1;                 // PCI address (e.g., "0000:01:00.0")
+  string vendor_id = 2;               // Vendor ID (hex string)
+  string vendor_name = 3;             // Vendor name (e.g., "NVIDIA Corporation")
+  string product_id = 4;              // Product ID (hex string)
+  string product_name = 5;            // Product name
+  string driver = 6;                  // Current kernel driver
+  int32 iommu_group = 7;              // IOMMU group number (-1 if not available)
+  string class = 8;                   // Device class (hex)
+  string class_name = 9;              // Human-readable class name
+}
+
+// ListPCIDevicesRequest is the request for listing host PCI devices
+message ListPCIDevicesRequest {
+  // No filters yet - can add class_filter, iommu_only, etc. later
+}
+
+// ListPCIDevicesResponse contains the list of PCI devices
+message ListPCIDevicesResponse {
+  repeated PCIDevice devices = 1;
+  bool iommu_available = 2;           // Whether IOMMU is enabled on the host
+  bool vfio_available = 3;            // Whether VFIO modules are loaded
+}
+
+// IOMMUGroup represents a group of PCI devices that share an IOMMU group
+message IOMMUGroup {
+  int32 group_number = 1;
+  repeated PCIDevice devices = 2;
+}
