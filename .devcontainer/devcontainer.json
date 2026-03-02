@@ -1,0 +1,44 @@
+{
+  "name": "Lab Test Environment",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+  "runArgs": ["--privileged"],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-playwright.playwright",
+        "golang.go",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode-remote.remote-ssh",
+        "zxh404.vscode-proto3"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "go.toolsManagement.autoUpdate": true
+      }
+    }
+  },
+  "forwardPorts": [3000, 8080],
+  "portsAttributes": {
+    "3000": {
+      "label": "Web App",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "API Server",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "pnpm install && cd apps/web && pnpm exec playwright install --with-deps chromium",
+  "postStartCommand": "sudo service libvirtd start",
+  "remoteUser": "root"
+}

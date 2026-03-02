@@ -1,0 +1,108 @@
+# Lab Infrastructure Dashboard Configuration
+# Copy this file to config.yaml and modify as needed
+
+# Server configuration
+server:
+  port: "8080"
+  env: "development"  # development, staging, production
+
+# Backend type: "libvirt"
+backend: "libvirt"
+
+# Libvirt connection settings
+libvirt:
+  uri: "qemu:///session"  # qemu:///system for system-level, qemu:///session for user-level
+
+# Storage configuration
+storage:
+  # ISO image storage location
+  iso_dir: ""  # Default: ~/libvirt-images/isos (leave empty for default)
+
+  # VM disk image storage location
+  vm_disk_dir: ""  # Default: ~/libvirt-images/disks (leave empty for default)
+
+  # Maximum ISO file size in bytes (0 = no limit)
+  max_iso_size: 53687091200  # 50 GB
+
+  # Allowed file extensions for ISOs
+  allowed_extensions:
+    - ".iso"
+
+# VM defaults
+vm_defaults:
+  # Default disk format for new VMs
+  disk_format: "qcow2"
+
+  # Default bus type for disks
+  disk_bus: "virtio"
+
+  # Default emulator path (auto-detected if empty)
+  emulator_path: ""
+
+  # Architecture-specific emulator paths
+  emulator_paths:
+    x86_64: "/usr/bin/qemu-system-x86_64"
+    aarch64: "/usr/bin/qemu-system-aarch64"
+    # macOS Homebrew paths
+    # x86_64: "/opt/homebrew/bin/qemu-system-x86_64"
+    # aarch64: "/opt/homebrew/bin/qemu-system-aarch64"
+
+  # OVMF/UEFI firmware path (used when bios=ovmf, e.g. for Windows q35 VMs)
+  # Auto-detected from standard locations if empty
+  ovmf_path: ""
+  # Linux example:   /usr/share/OVMF/OVMF_CODE.fd
+  # macOS example:   /opt/homebrew/share/qemu/edk2-x86_64-code.fd
+
+# Upload configuration (Tus protocol)
+upload:
+  # Chunk size for resumable uploads
+  chunk_size: 52428800  # 50 MB
+
+  # Retry delays in milliseconds
+  retry_delays:
+    - 0
+    - 1000
+    - 3000
+    - 5000
+
+# Logging configuration
+logging:
+  level: "info"  # debug, info, warn, error
+  format: "text"  # text, json
+
+# Authentication configuration
+auth:
+  # JWT secret key (REQUIRED in production - use a secure random string)
+  # Generate with: openssl rand -base64 32
+  jwt_secret: "change-me-in-production"
+  
+  # Access token expiry (short-lived for security)
+  access_token_expiry: "15m"
+  
+  # Refresh token expiry (longer for convenience)
+  refresh_token_expiry: "168h"  # 7 days
+  
+  # JWT issuer claim
+  issuer: "lab-api"
+  
+  # MFA settings
+  mfa:
+    issuer_name: "Lab"  # Name shown in authenticator apps
+    required_for_admin: false  # Require MFA for admin accounts
+
+# Reverse proxy configuration
+proxy:
+  # Enable the built-in reverse proxy server
+  enabled: true
+
+  # HTTP port (used for plain-HTTP proxying and ACME HTTP-01 challenges)
+  http_port: 80
+
+  # HTTPS port (used for TLS proxying)
+  https_port: 443
+
+  # Email address for ACME / Let's Encrypt registration (required for ssl_mode: acme)
+  acme_email: ""
+
+  # Directory where certmagic stores ACME certificates (required for ssl_mode: acme)
+  acme_storage_dir: ""

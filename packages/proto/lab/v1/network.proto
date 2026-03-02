@@ -1,0 +1,527 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// NetworkService provides virtual network and firewall management
+service NetworkService {
+  // Virtual Network operations
+  rpc ListNetworks(ListNetworksRequest) returns (ListNetworksResponse);
+  rpc GetNetwork(GetNetworkRequest) returns (GetNetworkResponse);
+  rpc CreateNetwork(CreateNetworkRequest) returns (CreateNetworkResponse);
+  rpc UpdateNetwork(UpdateNetworkRequest) returns (UpdateNetworkResponse);
+  rpc DeleteNetwork(DeleteNetworkRequest) returns (DeleteNetworkResponse);
+  
+  // Network Interface operations
+  rpc ListVmNetworkInterfaces(ListVmNetworkInterfacesRequest) returns (ListVmNetworkInterfacesResponse);
+  rpc CreateVmNetworkInterface(CreateVmNetworkInterfaceRequest) returns (CreateVmNetworkInterfaceResponse);
+  rpc UpdateVmNetworkInterface(UpdateVmNetworkInterfaceRequest) returns (UpdateVmNetworkInterfaceResponse);
+  rpc DeleteVmNetworkInterface(DeleteVmNetworkInterfaceRequest) returns (DeleteVmNetworkInterfaceResponse);
+  
+  // Bridge operations
+  rpc ListBridges(ListBridgesRequest) returns (ListBridgesResponse);
+  rpc CreateBridge(CreateBridgeRequest) returns (CreateBridgeResponse);
+  rpc DeleteBridge(DeleteBridgeRequest) returns (DeleteBridgeResponse);
+  
+  // DHCP operations
+  rpc GetDHCPLeases(GetDHCPLeasesRequest) returns (GetDHCPLeasesResponse);
+  rpc AddDHCPStaticLease(AddDHCPStaticLeaseRequest) returns (AddDHCPStaticLeaseResponse);
+  rpc RemoveDHCPStaticLease(RemoveDHCPStaticLeaseRequest) returns (RemoveDHCPStaticLeaseResponse);
+}
+
+// FirewallService provides firewall rule management
+service FirewallService {
+  // Firewall rule operations
+  rpc ListFirewallRules(ListFirewallRulesRequest) returns (ListFirewallRulesResponse);
+  rpc GetFirewallRule(GetFirewallRuleRequest) returns (GetFirewallRuleResponse);
+  rpc CreateFirewallRule(CreateFirewallRuleRequest) returns (CreateFirewallRuleResponse);
+  rpc UpdateFirewallRule(UpdateFirewallRuleRequest) returns (UpdateFirewallRuleResponse);
+  rpc DeleteFirewallRule(DeleteFirewallRuleRequest) returns (DeleteFirewallRuleResponse);
+  rpc EnableFirewallRule(EnableFirewallRuleRequest) returns (EnableFirewallRuleResponse);
+  rpc DisableFirewallRule(DisableFirewallRuleRequest) returns (DisableFirewallRuleResponse);
+  
+  // Firewall group operations
+  rpc ListFirewallGroups(ListFirewallGroupsRequest) returns (ListFirewallGroupsResponse);
+  rpc CreateFirewallGroup(CreateFirewallGroupRequest) returns (CreateFirewallGroupResponse);
+  rpc UpdateFirewallGroup(UpdateFirewallGroupRequest) returns (UpdateFirewallGroupResponse);
+  rpc DeleteFirewallGroup(DeleteFirewallGroupRequest) returns (DeleteFirewallGroupResponse);
+  
+  // Firewall operations
+  rpc GetFirewallStatus(GetFirewallStatusRequest) returns (GetFirewallStatusResponse);
+  rpc EnableFirewall(EnableFirewallRequest) returns (EnableFirewallResponse);
+  rpc DisableFirewall(DisableFirewallRequest) returns (DisableFirewallResponse);
+}
+
+// NetworkStatus represents the operational status of a network
+enum NetworkStatus {
+  NETWORK_STATUS_UNSPECIFIED = 0;
+  NETWORK_STATUS_ACTIVE = 1;
+  NETWORK_STATUS_INACTIVE = 2;
+  NETWORK_STATUS_ERROR = 3;
+}
+
+// FirewallAction represents the action for a firewall rule
+enum FirewallAction {
+  FIREWALL_ACTION_UNSPECIFIED = 0;
+  FIREWALL_ACTION_ACCEPT = 1;
+  FIREWALL_ACTION_DROP = 2;
+  FIREWALL_ACTION_REJECT = 3;
+  FIREWALL_ACTION_LOG = 4;
+}
+
+// FirewallDirection represents the direction of traffic for a rule
+enum FirewallDirection {
+  FIREWALL_DIRECTION_UNSPECIFIED = 0;
+  FIREWALL_DIRECTION_INBOUND = 1;
+  FIREWALL_DIRECTION_OUTBOUND = 2;
+  FIREWALL_DIRECTION_BOTH = 3;
+}
+
+// VirtualNetwork represents a virtual network
+message VirtualNetwork {
+  string id = 1;
+  string name = 2;
+  NetworkType type = 3;           // From common.proto
+  NetworkStatus status = 4;
+  string bridge_name = 5;         // Bridge interface name
+  int32 vlan_id = 6;              // VLAN ID (0 = no VLAN)
+  string subnet = 7;              // CIDR notation (e.g., "192.168.1.0/24")
+  string gateway = 8;             // Gateway IP
+  bool dhcp_enabled = 9;
+  string dhcp_range_start = 10;   // DHCP range start
+  string dhcp_range_end = 11;     // DHCP range end
+  string dns_servers = 12;        // Comma-separated DNS servers
+  bool isolated = 13;             // Isolated network (no external access)
+  int32 mtu = 14;                 // MTU value
+  string description = 15;
+  string created_at = 16;
+  int32 interface_count = 17;     // Number of connected interfaces
+}
+
+// VmNetworkInterface represents a virtual network interface (renamed to avoid conflict)
+message VmNetworkInterface {
+  string id = 1;
+  string network_id = 2;
+  string name = 3;
+  string mac_address = 4;
+  string ip_address = 5;
+  string interface_type = 6;      // "vm", "container", "host"
+  int32 entity_id = 7;            // VM or container ID
+  string entity_type = 8;         // "vm" or "container"
+  bool enabled = 9;
+  string created_at = 10;
+}
+
+// Bridge represents a Linux bridge
+message Bridge {
+  string id = 1;
+  string name = 2;
+  string interface_name = 3;
+  bool stp_enabled = 4;           // Spanning Tree Protocol
+  int32 priority = 5;
+  repeated string ports = 6;      // Member interfaces
+  string created_at = 7;
+}
+
+// DHCPLease represents a DHCP lease
+message DHCPLease {
+  string id = 1;
+  string network_id = 2;
+  string mac_address = 3;
+  string ip_address = 4;
+  string hostname = 5;
+  string expires_at = 6;
+  bool is_static = 7;
+}
+
+// FirewallRule represents a firewall rule
+message FirewallRule {
+  string id = 1;
+  string name = 2;
+  int32 priority = 3;             // Lower = higher priority
+  FirewallAction action = 4;
+  FirewallDirection direction = 5;
+  string source_cidr = 6;         // Source CIDR (empty = any)
+  string dest_cidr = 7;           // Destination CIDR (empty = any)
+  string protocol = 8;            // "tcp", "udp", "icmp", "any"
+  string source_port = 9;         // Port or range (e.g., "80", "80:443")
+  string dest_port = 10;          // Port or range
+  string interface = 11;          // Network interface (empty = any)
+  bool enabled = 12;
+  bool log = 13;                  // Log matched packets
+  string description = 14;
+  string created_at = 15;
+  string updated_at = 16;
+}
+
+// FirewallGroup represents a group of firewall rules
+message FirewallGroup {
+  string id = 1;
+  string name = 2;
+  repeated string rule_ids = 3;
+  string scope_type = 4;          // "global", "node", "network", "vm"
+  string scope_id = 5;            // ID of the scoped entity
+  string description = 6;
+  string created_at = 7;
+}
+
+// ListNetworksRequest lists virtual networks
+message ListNetworksRequest {
+  NetworkType type = 1;
+  NetworkStatus status = 2;
+}
+
+// ListNetworksResponse contains a list of networks
+message ListNetworksResponse {
+  repeated VirtualNetwork networks = 1;
+  int32 total = 2;
+}
+
+// GetNetworkRequest gets a specific network
+message GetNetworkRequest {
+  string id = 1;
+}
+
+// GetNetworkResponse contains network details
+message GetNetworkResponse {
+  VirtualNetwork network = 1;
+}
+
+// CreateNetworkRequest creates a new network
+message CreateNetworkRequest {
+  string name = 1;
+  NetworkType type = 2;
+  string bridge_name = 3;
+  int32 vlan_id = 4;
+  string subnet = 5;
+  string gateway = 6;
+  bool dhcp_enabled = 7;
+  string dhcp_range_start = 8;
+  string dhcp_range_end = 9;
+  string dns_servers = 10;
+  bool isolated = 11;
+  int32 mtu = 12;
+  string description = 13;
+}
+
+// CreateNetworkResponse returns the created network
+message CreateNetworkResponse {
+  VirtualNetwork network = 1;
+}
+
+// UpdateNetworkRequest updates an existing network
+message UpdateNetworkRequest {
+  string id = 1;
+  string name = 2;
+  NetworkStatus status = 3;
+  bool dhcp_enabled = 4;
+  string dhcp_range_start = 5;
+  string dhcp_range_end = 6;
+  string dns_servers = 7;
+  bool isolated = 8;
+  int32 mtu = 9;
+  string description = 10;
+}
+
+// UpdateNetworkResponse returns the updated network
+message UpdateNetworkResponse {
+  VirtualNetwork network = 1;
+}
+
+// DeleteNetworkRequest deletes a network
+message DeleteNetworkRequest {
+  string id = 1;
+  bool force = 2;
+}
+
+// DeleteNetworkResponse confirms deletion
+message DeleteNetworkResponse {}
+
+// ListVmNetworkInterfacesRequest lists network interfaces
+message ListVmNetworkInterfacesRequest {
+  string network_id = 1;
+  int32 entity_id = 2;
+  string entity_type = 3;
+}
+
+// ListVmNetworkInterfacesResponse contains a list of interfaces
+message ListVmNetworkInterfacesResponse {
+  repeated VmNetworkInterface interfaces = 1;
+  int32 total = 2;
+}
+
+// CreateVmNetworkInterfaceRequest creates a network interface
+message CreateVmNetworkInterfaceRequest {
+  string network_id = 1;
+  string name = 2;
+  string mac_address = 3;
+  string ip_address = 4;
+  string interface_type = 5;
+  int32 entity_id = 6;
+  string entity_type = 7;
+}
+
+// CreateVmNetworkInterfaceResponse returns the created interface
+message CreateVmNetworkInterfaceResponse {
+  VmNetworkInterface interface = 1;
+}
+
+// UpdateVmNetworkInterfaceRequest updates an interface
+message UpdateVmNetworkInterfaceRequest {
+  string id = 1;
+  string mac_address = 2;
+  string ip_address = 3;
+  bool enabled = 4;
+}
+
+// UpdateVmNetworkInterfaceResponse returns the updated interface
+message UpdateVmNetworkInterfaceResponse {
+  VmNetworkInterface interface = 1;
+}
+
+// DeleteVmNetworkInterfaceRequest deletes an interface
+message DeleteVmNetworkInterfaceRequest {
+  string id = 1;
+}
+
+// DeleteVmNetworkInterfaceResponse confirms deletion
+message DeleteVmNetworkInterfaceResponse {}
+
+// ListBridgesRequest lists bridges
+message ListBridgesRequest {}
+
+// ListBridgesResponse contains a list of bridges
+message ListBridgesResponse {
+  repeated Bridge bridges = 1;
+  int32 total = 2;
+}
+
+// CreateBridgeRequest creates a bridge
+message CreateBridgeRequest {
+  string name = 1;
+  bool stp_enabled = 2;
+  int32 priority = 3;
+  repeated string ports = 4;
+}
+
+// CreateBridgeResponse returns the created bridge
+message CreateBridgeResponse {
+  Bridge bridge = 1;
+}
+
+// DeleteBridgeRequest deletes a bridge
+message DeleteBridgeRequest {
+  string name = 1;
+  bool force = 2;
+}
+
+// DeleteBridgeResponse confirms deletion
+message DeleteBridgeResponse {}
+
+// GetDHCPLeasesRequest gets DHCP leases
+message GetDHCPLeasesRequest {
+  string network_id = 1;
+  bool static_only = 2;
+}
+
+// GetDHCPLeasesResponse contains DHCP leases
+message GetDHCPLeasesResponse {
+  repeated DHCPLease leases = 1;
+  int32 total = 2;
+}
+
+// AddDHCPStaticLeaseRequest adds a static DHCP lease
+message AddDHCPStaticLeaseRequest {
+  string network_id = 1;
+  string mac_address = 2;
+  string ip_address = 3;
+  string hostname = 4;
+}
+
+// AddDHCPStaticLeaseResponse confirms the lease
+message AddDHCPStaticLeaseResponse {
+  DHCPLease lease = 1;
+}
+
+// RemoveDHCPStaticLeaseRequest removes a static lease
+message RemoveDHCPStaticLeaseRequest {
+  string network_id = 1;
+  string mac_address = 2;
+}
+
+// RemoveDHCPStaticLeaseResponse confirms removal
+message RemoveDHCPStaticLeaseResponse {}
+
+// ListFirewallRulesRequest lists firewall rules
+message ListFirewallRulesRequest {
+  string scope_type = 1;          // "global", "node", "network", "vm"
+  string scope_id = 2;
+  bool enabled_only = 3;
+}
+
+// ListFirewallRulesResponse contains a list of rules
+message ListFirewallRulesResponse {
+  repeated FirewallRule rules = 1;
+  int32 total = 2;
+}
+
+// GetFirewallRuleRequest gets a specific rule
+message GetFirewallRuleRequest {
+  string id = 1;
+}
+
+// GetFirewallRuleResponse contains rule details
+message GetFirewallRuleResponse {
+  FirewallRule rule = 1;
+}
+
+// CreateFirewallRuleRequest creates a firewall rule
+message CreateFirewallRuleRequest {
+  string name = 1;
+  int32 priority = 2;
+  FirewallAction action = 3;
+  FirewallDirection direction = 4;
+  string source_cidr = 5;
+  string dest_cidr = 6;
+  string protocol = 7;
+  string source_port = 8;
+  string dest_port = 9;
+  string interface = 10;
+  bool log = 11;
+  string description = 12;
+  string scope_type = 13;
+  string scope_id = 14;
+}
+
+// CreateFirewallRuleResponse returns the created rule
+message CreateFirewallRuleResponse {
+  FirewallRule rule = 1;
+}
+
+// UpdateFirewallRuleRequest updates a rule
+message UpdateFirewallRuleRequest {
+  string id = 1;
+  string name = 2;
+  int32 priority = 3;
+  FirewallAction action = 4;
+  FirewallDirection direction = 5;
+  string source_cidr = 6;
+  string dest_cidr = 7;
+  string protocol = 8;
+  string source_port = 9;
+  string dest_port = 10;
+  bool log = 11;
+  string description = 12;
+}
+
+// UpdateFirewallRuleResponse returns the updated rule
+message UpdateFirewallRuleResponse {
+  FirewallRule rule = 1;
+}
+
+// DeleteFirewallRuleRequest deletes a rule
+message DeleteFirewallRuleRequest {
+  string id = 1;
+}
+
+// DeleteFirewallRuleResponse confirms deletion
+message DeleteFirewallRuleResponse {}
+
+// EnableFirewallRuleRequest enables a rule
+message EnableFirewallRuleRequest {
+  string id = 1;
+}
+
+// EnableFirewallRuleResponse confirms enable
+message EnableFirewallRuleResponse {}
+
+// DisableFirewallRuleRequest disables a rule
+message DisableFirewallRuleRequest {
+  string id = 1;
+}
+
+// DisableFirewallRuleResponse confirms disable
+message DisableFirewallRuleResponse {}
+
+// ListFirewallGroupsRequest lists firewall groups
+message ListFirewallGroupsRequest {
+  string scope_type = 1;
+  string scope_id = 2;
+}
+
+// ListFirewallGroupsResponse contains a list of groups
+message ListFirewallGroupsResponse {
+  repeated FirewallGroup groups = 1;
+  int32 total = 2;
+}
+
+// CreateFirewallGroupRequest creates a firewall group
+message CreateFirewallGroupRequest {
+  string name = 1;
+  repeated string rule_ids = 2;
+  string scope_type = 3;
+  string scope_id = 4;
+  string description = 5;
+}
+
+// CreateFirewallGroupResponse returns the created group
+message CreateFirewallGroupResponse {
+  FirewallGroup group = 1;
+}
+
+// UpdateFirewallGroupRequest updates a group
+message UpdateFirewallGroupRequest {
+  string id = 1;
+  string name = 2;
+  repeated string rule_ids = 3;
+  string description = 4;
+}
+
+// UpdateFirewallGroupResponse returns the updated group
+message UpdateFirewallGroupResponse {
+  FirewallGroup group = 1;
+}
+
+// DeleteFirewallGroupRequest deletes a group
+message DeleteFirewallGroupRequest {
+  string id = 1;
+}
+
+// DeleteFirewallGroupResponse confirms deletion
+message DeleteFirewallGroupResponse {}
+
+// GetFirewallStatusRequest gets firewall status
+message GetFirewallStatusRequest {
+  string scope_type = 1;
+  string scope_id = 2;
+}
+
+// GetFirewallStatusResponse contains firewall status
+message GetFirewallStatusResponse {
+  bool enabled = 1;
+  int32 rule_count = 2;
+  int32 active_connections = 3;
+  int64 packets_processed = 4;
+  int64 packets_dropped = 5;
+}
+
+// EnableFirewallRequest enables the firewall
+message EnableFirewallRequest {
+  string scope_type = 1;
+  string scope_id = 2;
+}
+
+// EnableFirewallResponse confirms enable
+message EnableFirewallResponse {}
+
+// DisableFirewallRequest disables the firewall
+message DisableFirewallRequest {
+  string scope_type = 1;
+  string scope_id = 2;
+}
+
+// DisableFirewallResponse confirms disable
+message DisableFirewallResponse {}

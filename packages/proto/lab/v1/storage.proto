@@ -1,0 +1,328 @@
+syntax = "proto3";
+
+package lab.v1;
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// StorageService provides storage pool and disk management
+service StorageService {
+  // Storage Pool operations
+  rpc ListStoragePools(ListStoragePoolsRequest) returns (ListStoragePoolsResponse);
+  rpc GetStoragePool(GetStoragePoolRequest) returns (GetStoragePoolResponse);
+  rpc CreateStoragePool(CreateStoragePoolRequest) returns (CreateStoragePoolResponse);
+  rpc UpdateStoragePool(UpdateStoragePoolRequest) returns (UpdateStoragePoolResponse);
+  rpc DeleteStoragePool(DeleteStoragePoolRequest) returns (DeleteStoragePoolResponse);
+  rpc RefreshStoragePool(RefreshStoragePoolRequest) returns (RefreshStoragePoolResponse);
+
+  // Storage Disk operations
+  rpc ListStorageDisks(ListStorageDisksRequest) returns (ListStorageDisksResponse);
+  rpc CreateStorageDisk(CreateStorageDiskRequest) returns (CreateStorageDiskResponse);
+  rpc ResizeStorageDisk(ResizeStorageDiskRequest) returns (ResizeStorageDiskResponse);
+  rpc DeleteStorageDisk(DeleteStorageDiskRequest) returns (DeleteStorageDiskResponse);
+  rpc MoveStorageDisk(MoveStorageDiskRequest) returns (MoveStorageDiskResponse);
+
+  // VM Disk operations
+  rpc ListVMDisks(ListVMDisksRequest) returns (ListVMDisksResponse);
+  rpc AttachVMdisk(AttachVMdiskRequest) returns (AttachVMdiskResponse);
+  rpc DetachVMdisk(DetachVMdiskRequest) returns (DetachVMdiskResponse);
+  rpc ResizeVMdisk(ResizeVMdiskRequest) returns (ResizeVMdiskResponse);
+
+  // Storage content (ISOs, disk images, etc.)
+  rpc ListStorageContent(ListStorageContentRequest) returns (ListStorageContentResponse);
+}
+
+// StorageType represents the type of storage backend
+enum StorageType {
+  STORAGE_TYPE_UNSPECIFIED = 0;
+  STORAGE_TYPE_DIR = 1;       // Directory-based storage
+  STORAGE_TYPE_LVM = 2;       // LVM thin/thick provisioning
+  STORAGE_TYPE_ZFS = 3;       // ZFS storage
+  STORAGE_TYPE_NFS = 4;       // NFS mount
+  STORAGE_TYPE_ISCSI = 5;     // iSCSI target
+  STORAGE_TYPE_CEPH = 6;      // Ceph RBD
+  STORAGE_TYPE_GLUSTER = 7;   // GlusterFS
+}
+
+// StorageStatus represents the operational status of a storage pool
+enum StorageStatus {
+  STORAGE_STATUS_UNSPECIFIED = 0;
+  STORAGE_STATUS_ACTIVE = 1;
+  STORAGE_STATUS_INACTIVE = 2;
+  STORAGE_STATUS_MAINTENANCE = 3;
+  STORAGE_STATUS_ERROR = 4;
+}
+
+// DiskFormat represents the disk image format
+enum DiskFormat {
+  DISK_FORMAT_UNSPECIFIED = 0;
+  DISK_FORMAT_QCOW2 = 1;    // QEMU Copy-On-Write v2
+  DISK_FORMAT_RAW = 2;      // Raw disk image
+  DISK_FORMAT_VMDK = 3;     // VMware disk
+  DISK_FORMAT_VDI = 4;      // VirtualBox disk
+  DISK_FORMAT_VHDX = 5;     // Hyper-V disk
+}
+
+// DiskBus represents the disk bus type
+enum DiskBus {
+  DISK_BUS_UNSPECIFIED = 0;
+  DISK_BUS_VIRTIO = 1;      // VirtIO paravirtualized
+  DISK_BUS_SATA = 2;        // SATA/AHCI
+  DISK_BUS_SCSI = 3;        // SCSI
+  DISK_BUS_IDE = 4;         // IDE (legacy)
+  DISK_BUS_USB = 5;         // USB
+  DISK_BUS_NVME = 6;        // NVMe
+}
+
+// StoragePool represents a storage pool
+message StoragePool {
+  string id = 1;
+  string name = 2;
+  StorageType type = 3;
+  StorageStatus status = 4;
+  string path = 5;              // Local path or remote export
+  int64 capacity_bytes = 6;
+  int64 used_bytes = 7;
+  int64 available_bytes = 8;
+  double usage_percent = 9;
+  map<string, string> options = 10;  // Type-specific options
+  string created_at = 11;
+  string updated_at = 12;
+  bool enabled = 13;
+  int32 disk_count = 14;        // Number of disks in pool
+  string description = 15;
+}
+
+// StorageDisk represents a virtual disk in a storage pool
+message StorageDisk {
+  string id = 1;
+  string pool_id = 2;
+  string name = 3;
+  int64 size_bytes = 4;
+  DiskFormat format = 5;
+  DiskBus bus = 6;
+  int32 vmid = 7;               // Associated VM (0 = unassigned)
+  string path = 8;              // Full path to disk image
+  int64 used_bytes = 9;         // Actual disk usage (for thin provisioned)
+  bool sparse = 10;             // Thin provisioned
+  string created_at = 11;
+  string description = 12;
+}
+
+// VMDisk represents a disk attached to a VM
+message VMDisk {
+  string id = 1;
+  int32 vmid = 2;
+  string target = 3;            // Device target (vda, vdb, sda, etc.)
+  string path = 4;              // Full path to disk image
+  int64 size_bytes = 5;
+  DiskBus bus = 6;
+  DiskFormat format = 7;
+  bool readonly = 8;
+  int32 boot_order = 9;         // 1 = first boot disk, 0 = no boot order
+}
+
+// StorageContent represents content in a storage pool (ISO, disk image, etc.)
+message StorageContent {
+  string id = 1;
+  string pool_id = 2;
+  string name = 3;
+  string type = 4;              // "iso", "disk", "backup", "template"
+  int64 size_bytes = 5;
+  string format = 6;
+  string created_at = 7;
+  string description = 8;
+}
+
+// ListStoragePoolsRequest lists storage pools
+message ListStoragePoolsRequest {
+  StorageType type = 1;         // Filter by type
+  StorageStatus status = 2;     // Filter by status
+  bool enabled_only = 3;        // Only return enabled pools
+}
+
+// ListStoragePoolsResponse contains a list of storage pools
+message ListStoragePoolsResponse {
+  repeated StoragePool pools = 1;
+  int32 total = 2;
+}
+
+// GetStoragePoolRequest gets a specific storage pool
+message GetStoragePoolRequest {
+  string id = 1;
+}
+
+// GetStoragePoolResponse contains storage pool details
+message GetStoragePoolResponse {
+  StoragePool pool = 1;
+}
+
+// CreateStoragePoolRequest creates a new storage pool
+message CreateStoragePoolRequest {
+  string name = 1;
+  StorageType type = 2;
+  string path = 3;              // Local path or remote export
+  map<string, string> options = 4;  // Type-specific options
+  string description = 5;
+  bool enabled = 6;
+}
+
+// CreateStoragePoolResponse returns the created pool
+message CreateStoragePoolResponse {
+  StoragePool pool = 1;
+}
+
+// UpdateStoragePoolRequest updates an existing storage pool
+message UpdateStoragePoolRequest {
+  string id = 1;
+  string name = 2;
+  StorageStatus status = 3;
+  map<string, string> options = 4;
+  string description = 5;
+  bool enabled = 6;
+}
+
+// UpdateStoragePoolResponse returns the updated pool
+message UpdateStoragePoolResponse {
+  StoragePool pool = 1;
+}
+
+// DeleteStoragePoolRequest deletes a storage pool
+message DeleteStoragePoolRequest {
+  string id = 1;
+  bool force = 2;               // Force delete even if pool has content
+}
+
+// DeleteStoragePoolResponse confirms deletion
+message DeleteStoragePoolResponse {}
+
+// RefreshStoragePoolRequest refreshes pool information
+message RefreshStoragePoolRequest {
+  string id = 1;
+}
+
+// RefreshStoragePoolResponse returns updated pool info
+message RefreshStoragePoolResponse {
+  StoragePool pool = 1;
+}
+
+// ListStorageDisksRequest lists disks in a pool
+message ListStorageDisksRequest {
+  string pool_id = 1;
+  int32 vmid = 2;               // Filter by VM
+  bool unassigned_only = 3;     // Only unassigned disks
+}
+
+// ListStorageDisksResponse contains a list of disks
+message ListStorageDisksResponse {
+  repeated StorageDisk disks = 1;
+  int32 total = 2;
+}
+
+// CreateStorageDiskRequest creates a new disk
+message CreateStorageDiskRequest {
+  string pool_id = 1;
+  string name = 2;
+  int64 size_bytes = 3;
+  DiskFormat format = 4;
+  DiskBus bus = 5;
+  bool sparse = 6;              // Thin provisioned
+  string description = 7;
+}
+
+// CreateStorageDiskResponse returns the created disk
+message CreateStorageDiskResponse {
+  StorageDisk disk = 1;
+}
+
+// ResizeStorageDiskRequest resizes a disk
+message ResizeStorageDiskRequest {
+  string disk_id = 1;
+  int64 new_size_bytes = 2;
+  bool shrink = 3;              // Allow shrinking (dangerous)
+}
+
+// ResizeStorageDiskResponse confirms resize
+message ResizeStorageDiskResponse {
+  StorageDisk disk = 1;
+}
+
+// DeleteStorageDiskRequest deletes a disk
+message DeleteStorageDiskRequest {
+  string disk_id = 1;
+  bool purge = 2;               // Purge from VM config if attached
+}
+
+// DeleteStorageDiskResponse confirms deletion
+message DeleteStorageDiskResponse {}
+
+// MoveStorageDiskRequest moves a disk to another pool
+message MoveStorageDiskRequest {
+  string disk_id = 1;
+  string target_pool_id = 2;
+  DiskFormat format = 3;        // Optional format conversion
+  bool delete_original = 4;     // Delete original after move
+}
+
+// MoveStorageDiskResponse returns the moved disk
+message MoveStorageDiskResponse {
+  StorageDisk disk = 1;
+  string task_id = 2;           // Task ID for tracking
+}
+
+// ListStorageContentRequest lists content in a pool
+message ListStorageContentRequest {
+  string pool_id = 1;
+  string content_type = 2;      // "iso", "disk", "backup", "template"
+}
+
+// ListStorageContentResponse contains a list of content
+message ListStorageContentResponse {
+  repeated StorageContent content = 1;
+  int32 total = 2;
+}
+
+// ListVMDisksRequest lists disks attached to a VM
+message ListVMDisksRequest {
+  int32 vmid = 1;
+}
+
+// ListVMDisksResponse contains a list of VM disks
+message ListVMDisksResponse {
+  repeated VMDisk disks = 1;
+}
+
+// AttachVMdiskRequest attaches a disk to a VM
+message AttachVMdiskRequest {
+  int32 vmid = 1;
+  string disk_path = 2;         // Path to disk image
+  DiskBus bus = 3;              // Disk bus type
+  bool readonly = 4;            // Read-only attachment
+}
+
+// AttachVMdiskResponse confirms attachment
+message AttachVMdiskResponse {
+  VMDisk disk = 1;
+  string target = 2;            // Device target (vda, vdb, etc.)
+}
+
+// DetachVMdiskRequest detaches a disk from a VM
+message DetachVMdiskRequest {
+  int32 vmid = 1;
+  string target = 2;            // Device target to detach
+  bool delete_disk = 3;         // Also delete the disk file
+}
+
+// DetachVMdiskResponse confirms detachment
+message DetachVMdiskResponse {}
+
+// ResizeVMdiskRequest resizes a VM disk
+message ResizeVMdiskRequest {
+  int32 vmid = 1;
+  string target = 2;            // Device target to resize
+  int64 new_size_bytes = 3;     // New size in bytes
+}
+
+// ResizeVMdiskResponse confirms resize
+message ResizeVMdiskResponse {
+  VMDisk disk = 1;
+}

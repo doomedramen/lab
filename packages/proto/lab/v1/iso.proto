@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/storage.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+service IsoService {
+  rpc ListISOs(ListISOsRequest) returns (ListISOsResponse);
+  rpc GetISO(GetISORequest) returns (GetISOResponse);
+  rpc DeleteISO(DeleteISORequest) returns (DeleteISOResponse);
+  rpc ListISOPools(ListISOPoolsRequest) returns (ListISOPoolsResponse);
+  rpc DownloadISO(DownloadISORequest) returns (DownloadISOResponse);
+  rpc GetISODownloadProgress(GetISODownloadProgressRequest) returns (GetISODownloadProgressResponse);
+  rpc ListISODownloadProgress(ListISODownloadProgressRequest) returns (ListISODownloadProgressResponse);
+}
+
+message ISOImage {
+  string id = 1;
+  string name = 2;
+  int64 size = 3;
+  string path = 4;
+  string description = 5;
+  string os = 6;
+  string status = 7;
+  string created_at = 8;
+}
+
+// ListISOsRequest lists ISO images
+message ListISOsRequest {}
+
+// ListISOsResponse contains a list of ISO images
+message ListISOsResponse {
+  repeated ISOImage isos = 1;
+  int32 total = 2;
+}
+
+message GetISORequest {
+  string id = 1;
+}
+
+message GetISOResponse {
+  ISOImage iso = 1;
+}
+
+message DeleteISORequest {
+  string id = 1;
+}
+
+message DeleteISOResponse {}
+
+// ListISOPoolsRequest lists storage pools suitable for ISO storage
+message ListISOPoolsRequest {}
+
+// ListISOPoolsResponse contains a list of storage pools
+message ListISOPoolsResponse {
+  repeated StoragePool pools = 1;
+}
+
+message DownloadISORequest {
+  string url = 1;
+  string filename = 2;  // Optional, extracted from URL if not provided
+}
+
+message DownloadISOResponse {
+  string id = 1;
+  string filename = 2;
+  string status = 3;  // "downloading", "complete", "error"
+}
+
+message GetISODownloadProgressRequest {
+  string filename = 1;
+}
+
+message GetISODownloadProgressResponse {
+  string url = 1;
+  string filename = 2;
+  int64 downloaded = 3;
+  int64 total = 4;
+  double percent = 5;
+  string status = 6;  // "downloading", "complete", "error"
+  string error = 7;
+  string start_time = 8;
+  string estimated_time = 9;
+}
+
+message ListISODownloadProgressRequest {}
+
+message ListISODownloadProgressResponse {
+  repeated GetISODownloadProgressResponse downloads = 1;
+}

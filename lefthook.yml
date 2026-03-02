@@ -1,0 +1,23 @@
+pre-commit:
+  parallel: true
+  commands:
+    go-vet:
+      root: "apps/api"
+      run: go vet ./...
+      glob: "*.go"
+    web-types:
+      root: "apps/web"
+      run: pnpm check-types
+      glob: "*.{ts,tsx}"
+
+pre-push:
+  parallel: false
+  commands:
+    go-tests:
+      root: "apps/api"
+      run: go test ./...
+      glob: "*.go"
+    web-types:
+      root: "apps/web"
+      run: pnpm check-types
+      glob: "*.{ts,tsx}"

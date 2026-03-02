@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+service ContainerService {
+  rpc ListContainers(ListContainersRequest) returns (ListContainersResponse);
+  rpc GetContainer(GetContainerRequest) returns (GetContainerResponse);
+  rpc CreateContainer(CreateContainerRequest) returns (CreateContainerResponse);
+  rpc UpdateContainer(UpdateContainerRequest) returns (UpdateContainerResponse);
+  rpc DeleteContainer(DeleteContainerRequest) returns (DeleteContainerResponse);
+  rpc StartContainer(ContainerActionRequest) returns (ActionResponse);
+  rpc StopContainer(ContainerActionRequest) returns (ActionResponse);
+  rpc RebootContainer(ContainerActionRequest) returns (ActionResponse);
+}
+
+// ContainerStatus represents the operational status of a container
+enum ContainerStatus {
+  CONTAINER_STATUS_UNSPECIFIED = 0;
+  CONTAINER_STATUS_RUNNING = 1;
+  CONTAINER_STATUS_STOPPED = 2;
+  CONTAINER_STATUS_FROZEN = 3;
+}
+
+message Container {
+  string id = 1;
+  int32 ctid = 2;
+  string name = 3;
+  string node = 4;
+  ContainerStatus status = 5;
+  CpuInfoPartial cpu = 6;
+  MemoryInfo memory = 7;
+  DiskInfo disk = 8;
+  string uptime = 9;
+  string os = 10;
+  string ip = 11;
+  repeated string tags = 12;
+  bool unprivileged = 13;
+  SwapInfo swap = 14;
+  string description = 15;
+  bool start_on_boot = 16;
+}
+
+message ListContainersRequest {
+  // empty = all nodes
+  string node = 1;
+}
+
+message ListContainersResponse {
+  repeated Container containers = 1;
+}
+
+message GetContainerRequest {
+  int32 ctid = 1;
+}
+
+message GetContainerResponse {
+  Container container = 1;
+}
+
+message CreateContainerRequest {
+  string name = 1;
+  string node = 2;
+  int32 cpu_cores = 3;
+  double memory_gb = 4;
+  double disk_gb = 5;
+  string os = 6;
+  repeated string tags = 7;
+  bool unprivileged = 8;
+  string description = 9;
+  bool start_on_boot = 10;
+}
+
+message CreateContainerResponse {
+  Container container = 1;
+}
+
+message UpdateContainerRequest {
+  int32 ctid = 1;
+  string name = 2;
+  int32 cpu_cores = 3;
+  double memory_gb = 4;
+  repeated string tags = 5;
+  string description = 6;
+}
+
+message UpdateContainerResponse {
+  Container container = 1;
+}
+
+message DeleteContainerRequest {
+  int32 ctid = 1;
+}
+
+message DeleteContainerResponse {}
+
+message ContainerActionRequest {
+  int32 ctid = 1;
+}
