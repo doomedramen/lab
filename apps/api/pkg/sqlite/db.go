@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -40,6 +41,12 @@ func New(cfg Config) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
+	// Configure connection pool for SQLite
+	// SQLite allows only one writer at a time, so we serialize writes
+	db.SetMaxOpenConns(1)           // Serialize writes to prevent "database is locked"
+	db.SetMaxIdleConns(1)           // Keep one connection warm
+	db.SetConnMaxLifetime(time.Hour) // Recycle connections periodically
 
 	// Enable WAL mode and other optimizations
 	_, err = db.Exec(`
