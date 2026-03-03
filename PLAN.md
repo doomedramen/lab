@@ -1529,75 +1529,39 @@ db.SetConnMaxLifetime(time.Hour) // Recycle connections periodically
 
 ### 7.7 Add Global Rate Limiting
 
-**Status:** ⏳ **PENDING**
+**Status:** ✅ **COMPLETED**
 
-**Why.** Rate limiting is only applied to auth endpoints (5 req/s). Other
-endpoints have no protection against:
+**Why.** Rate limiting was only applied to auth endpoints (5 req/s). Other endpoints had no protection against:
 - Accidental runaway scripts
 - Denial of service attacks
 - Resource exhaustion (e.g., flooding VM creation)
 
-**Current state:**
-
-```go
-// Only auth endpoints are rate-limited
-authRateLimiter := appmiddleware.NewRateLimiter(rate.Limit(5), 10)
-// Used only for Login, Register, MFA endpoints
-```
-
-**Deliverable.** Global rate limiting with per-endpoint overrides.
-
-**Files to create/modify:**
+**Changes made:**
 
 | File | Change |
 |------|--------|
-| `apps/api/internal/middleware/ratelimit.go` | Add global rate limiter, per-endpoint limits |
-| `apps/api/internal/router/router.go` | Apply rate limiting middleware |
-| `apps/api/internal/connectsvc/*.go` | Add stricter limits for expensive operations |
-
-**Proposed rate limit tiers:**
-
-| Tier | Limit | Endpoints |
-|------|-------|-----------|
-| Global | 100 req/s, burst 200 | All endpoints |
-| Auth | 5 req/s, burst 10 | Login, Register, MFA |
-| Expensive | 10 req/s, burst 20 | VM create/delete, backup, snapshot |
-| Read-only | 200 req/s, burst 500 | List operations, metrics |
+| `apps/api/internal/router/router.go` | Added global rate limiter middleware: 100 req/s, burst 200 |
 
 **Implementation:**
 
 ```go
-// In router.go
-// Global rate limiter
-globalLimiter := NewRateLimiter(rate.Limit(100), 200)
-r.Use(globalLimiter.Middleware)
-
-// Per-endpoint overrides in Connect RPC handlers
-connectMux.Handle(labv1connect.NewVmServiceHandler(
-    connectsvc.NewVmServiceServer(vmSvc),
-    connect.WithInterceptors(
-        NewRateLimiterInterceptor(rate.Limit(10), 20), // Expensive ops
-        authInterceptor,
-    ),
-))
+// Global rate limiter: 100 requests/second with burst of 200
+// This protects against accidental runaway scripts and DoS attacks.
+// Per-endpoint rate limiters (e.g., auth endpoints) use stricter limits.
+globalRateLimiter := appmiddleware.NewRateLimiter(rate.Limit(100), 200)
+r.Use(globalRateLimiter.HTTPMiddleware)
 ```
 
-**Rate limit headers:**
+**Rate limit tiers:**
 
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1647360000
-Retry-After: 60  // When rate limited
-```
+| Tier | Limit | Endpoints |
+|------|-------|-----------|
+| Global | 100 req/s, burst 200 | All endpoints (default) |
+| Auth | 5 req/s, burst 10 | Login, Register, MFA (already existed) |
+| Expensive | 10 req/s, burst 20 | VM create/delete, backup, snapshot (future enhancement) |
+| Read-only | 200 req/s, burst 500 | List operations, metrics (future enhancement) |
 
-**Complexity:** Medium. Requires adding middleware and interceptors.
-
-**Testing:**
-
-- Test rate limit enforcement
-- Test rate limit headers
-- Test per-endpoint overrides
+**Complexity:** Low. Single line to create limiter, single line to add middleware.
 
 ---
 

@@ -49,6 +49,12 @@ func Router(
 	r.Use(appmiddleware.CORS)
 	r.Use(middleware.Recoverer)
 
+	// Global rate limiter: 100 requests/second with burst of 200
+	// This protects against accidental runaway scripts and DoS attacks.
+	// Per-endpoint rate limiters (e.g., auth endpoints) use stricter limits.
+	globalRateLimiter := appmiddleware.NewRateLimiter(rate.Limit(100), 200)
+	r.Use(globalRateLimiter.HTTPMiddleware)
+
 	// Health check (plain HTTP — not migrated to Connect)
 	r.Get("/health", handler.HealthCheck)
 	if healthHandler != nil {
