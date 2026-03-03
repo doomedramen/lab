@@ -34,8 +34,10 @@ type backupLibRepository interface {
 	Verify(backup *model.Backup) (string, error)
 }
 
-// NewBackupService creates a new backup service
+// NewBackupService creates a new backup service.
+// It accepts a context for the background scheduler.
 func NewBackupService(
+	ctx context.Context,
 	backupRepo repository.BackupRepository,
 	scheduleRepo repository.BackupScheduleRepository,
 	backupLib backupLibRepository,
@@ -51,7 +53,7 @@ func NewBackupService(
 	}
 
 	// Start scheduler for backup schedules
-	svc.startScheduler()
+	svc.startScheduler(ctx)
 
 	return svc
 }
@@ -93,14 +95,15 @@ func (s *BackupService) thawFilesystems(ctx context.Context, vmid int) {
 	slog.Info("Filesystems thawed after backup", "vmid", vmid, "count", count)
 }
 
-// startScheduler starts the cron scheduler for backup schedules
-func (s *BackupService) startScheduler() {
+// startScheduler starts the cron scheduler for backup schedules.
+// It accepts a context for graceful shutdown.
+func (s *BackupService) startScheduler(ctx context.Context) {
 	s.scheduler = cron.New(cron.WithSeconds())
 	s.schedulerRunning = true
 
 	// Check for due schedules every minute
 	s.scheduler.AddFunc("0 * * * * *", func() {
-		s.checkDueSchedules()
+		s.checkDueSchedules(ctx)
 	})
 
 	s.scheduler.Start()
@@ -117,8 +120,7 @@ func (s *BackupService) StopScheduler() {
 }
 
 // checkDueSchedules checks and runs due backup schedules
-func (s *BackupService) checkDueSchedules() {
-	ctx := context.Background()
+func (s *BackupService) checkDueSchedules(ctx context.Context) {
 	schedules, err := s.scheduleRepo.GetDueSchedules(ctx)
 	if err != nil {
 		slog.Error("Failed to get due backup schedules", "error", err)
@@ -127,13 +129,12 @@ func (s *BackupService) checkDueSchedules() {
 
 	for _, schedule := range schedules {
 		slog.Info("Running scheduled backup", "schedule_id", schedule.ID, "entity_id", schedule.EntityID)
-		go s.runScheduledBackup(schedule)
+		go s.runScheduledBackup(ctx, schedule)
 	}
 }
 
 // runScheduledBackup runs a single scheduled backup
-func (s *BackupService) runScheduledBackup(schedule *model.BackupSchedule) {
-	ctx := context.Background()
+func (s *BackupService) runScheduledBackup(ctx context.Context, schedule *model.BackupSchedule) {
 
 	// Create backup
 	backup := &model.Backup{
@@ -572,7 +573,7 @@ func (s *BackupService) RunBackupSchedule(ctx context.Context, scheduleID string
 
 	// Run the scheduled backup
 	backupID := uuid.New().String()
-	go s.runScheduledBackup(schedule)
+	go s.runScheduledBackup(context.Background(), schedule)
 
 	return uuid.New().String(), backupID, nil
 }

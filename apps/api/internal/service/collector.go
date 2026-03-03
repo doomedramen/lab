@@ -113,8 +113,9 @@ func NewCollector(
 	}
 }
 
-// Start begins the background collection loop
-func (c *Collector) Start() {
+// Start begins the background collection loop.
+// It accepts a parent context for graceful shutdown.
+func (c *Collector) Start(ctx context.Context) {
 	if !c.config.Enabled {
 		log.Println("[collector] disabled, skipping")
 		return
@@ -130,8 +131,8 @@ func (c *Collector) Start() {
 	c.initializeVMStates()
 
 	c.wg.Add(2)
-	go c.collectLoop()
-	go c.cleanupLoop()
+	go c.collectLoop(ctx)
+	go c.cleanupLoop(ctx)
 	log.Printf("[collector] started with %v interval", c.config.CollectionInterval)
 }
 
@@ -159,27 +160,28 @@ func (c *Collector) Stop() {
 }
 
 // collectLoop runs the collection logic at regular intervals
-func (c *Collector) collectLoop() {
+func (c *Collector) collectLoop(ctx context.Context) {
 	defer c.wg.Done()
 
 	ticker := time.NewTicker(c.config.CollectionInterval)
 	defer ticker.Stop()
 
 	// Collect immediately on start
-	c.collectOnce()
+	c.collectOnce(ctx)
 
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-ctx.Done():
+			log.Println("[collector] context cancelled, stopping collection loop")
 			return
 		case <-ticker.C:
-			c.collectOnce()
+			c.collectOnce(ctx)
 		}
 	}
 }
 
 // cleanupLoop runs retention cleanup daily
-func (c *Collector) cleanupLoop() {
+func (c *Collector) cleanupLoop(ctx context.Context) {
 	defer c.wg.Done()
 
 	ticker := time.NewTicker(24 * time.Hour)
@@ -187,22 +189,23 @@ func (c *Collector) cleanupLoop() {
 
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-ctx.Done():
+			log.Println("[collector] context cancelled, stopping cleanup loop")
 			return
 		case <-ticker.C:
-			c.runCleanup()
+			c.runCleanup(ctx)
 		}
 	}
 }
 
 // collectOnce performs a single collection cycle
-func (c *Collector) collectOnce() {
+func (c *Collector) collectOnce(ctx context.Context) {
 	startTime := time.Now()
 	var metrics []*sqlitePkg.Metric
 	ts := time.Now().Unix()
 
 	// Collect node metrics
-	nodes, _ := c.nodeRepo.GetAll(context.Background())
+	nodes, _ := c.nodeRepo.GetAll(ctx)
 	for _, node := range nodes {
 		// CPU
 		metrics = append(metrics, &sqlitePkg.Metric{
@@ -272,7 +275,7 @@ func (c *Collector) collectOnce() {
 	}
 
 	// Collect VM metrics
-	vms, _ := c.vmRepo.GetAll(context.Background())
+	vms, _ := c.vmRepo.GetAll(ctx)
 	for _, vm := range vms {
 		vmIDStr := fmt.Sprintf("%d", vm.VMID)  // Convert QEMU VMID to string
 
@@ -314,7 +317,7 @@ func (c *Collector) collectOnce() {
 
 	// Collect container metrics (if container repo is available)
 	if c.containerRepo != nil {
-		containers, _ := c.containerRepo.GetAll(context.Background())
+		containers, _ := c.containerRepo.GetAll(ctx)
 		for _, ct := range containers {
 			ctIDStr := fmt.Sprintf("%d", ct.CTID)  // Convert LXC CTID to string
 
@@ -352,10 +355,10 @@ func (c *Collector) collectOnce() {
 
 	// Batch insert metrics
 	if len(metrics) > 0 {
-		ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+		metricCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		if err := c.metricRepo.RecordBatch(ctx, metrics); err != nil {
+		if err := c.metricRepo.RecordBatch(metricCtx, metrics); err != nil {
 			log.Printf("[collector] failed to save metrics: %v", err)
 		} else {
 			c.lastCollectTime = startTime
@@ -367,12 +370,12 @@ func (c *Collector) collectOnce() {
 }
 
 // runCleanup removes old metrics and events
-func (c *Collector) runCleanup() {
-	ctx, cancel := context.WithTimeout(c.ctx, 30*time.Second)
+func (c *Collector) runCleanup(ctx context.Context) {
+	cleanupCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// Delete old metrics
-	deletedMetrics, err := c.metricRepo.DeleteOld(ctx, c.config.RetentionDays)
+	deletedMetrics, err := c.metricRepo.DeleteOld(cleanupCtx, c.config.RetentionDays)
 	if err != nil {
 		log.Printf("[collector] failed to cleanup old metrics: %v", err)
 	} else if deletedMetrics > 0 {
@@ -380,7 +383,7 @@ func (c *Collector) runCleanup() {
 	}
 
 	// Delete old events
-	deletedEvents, err := c.eventRepo.DeleteOld(ctx, c.config.EventRetentionDays)
+	deletedEvents, err := c.eventRepo.DeleteOld(cleanupCtx, c.config.EventRetentionDays)
 	if err != nil {
 		log.Printf("[collector] failed to cleanup old events: %v", err)
 	} else if deletedEvents > 0 {

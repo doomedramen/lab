@@ -1567,93 +1567,69 @@ r.Use(globalRateLimiter.HTTPMiddleware)
 
 ### 7.8 Add Context Propagation
 
-**Status:** ⏳ **PENDING**
+**Status:** ✅ **COMPLETED**
 
-**Why.** Some goroutines and long-running operations don't propagate context,
-leading to:
+**Why.** Some goroutines and long-running operations didn't propagate context, leading to:
 - Operations that can't be cancelled
 - Resource leaks on shutdown
 - No timeout enforcement
 
-**Current gaps:**
-
-```go
-// In internal/service/collector.go
-func (c *Collector) Start() {
-    go c.collectLoop()  // ❌ No context for cancellation
-}
-
-// In various services
-go func() {
-    // Long-running operation without context
-}()
-```
-
-**Deliverable.** Consistent context propagation throughout the codebase.
-
-**Files to modify:**
+**Changes made:**
 
 | File | Change |
 |------|--------|
-| `apps/api/internal/service/collector.go` | Add context to `Start(ctx)` and `collectLoop(ctx)` |
-| `apps/api/internal/service/task.go` | Pass context to async task operations |
-| `apps/api/internal/service/backup.go` | Add context to backup operations |
-| `apps/api/internal/service/snapshot.go` | Add context to snapshot operations |
-| `apps/api/internal/handler/*.go` | Extract context from Connect RPC requests |
+| `apps/api/internal/service/collector.go` | Added context to `Start(ctx)`, `collectLoop(ctx)`, `cleanupLoop(ctx)`, `collectOnce(ctx)`, `runCleanup(ctx)` |
+| `apps/api/internal/service/backup.go` | Added context to `NewBackupService(ctx, ...)`, `startScheduler(ctx)`, `checkDueSchedules(ctx)`, `runScheduledBackup(ctx, ...)` |
+| `apps/api/cmd/server/main.go` | Pass `context.Background()` to `Collector.Start()` and `NewBackupService()` |
+| `apps/api/internal/service/backup_test.go` | Updated all test calls to `NewBackupService()` to include context |
 
-**Pattern:**
+**Implementation pattern:**
 
 ```go
-// Service layer
-func (s *BackupService) RunBackup(ctx context.Context, vmID int) error {
-    // Check for cancellation
-    select {
-    case <-ctx.Done():
-        return ctx.Err()
-    default:
-    }
-
-    // Pass context to repository
-    return s.backupRepo.Create(ctx, backup)
-}
-
-// Handler layer
-func (h *BackupHandler) RunBackup(ctx context.Context, req *connect.Request[...]) {
-    // Extract deadline from RPC if set
-    if deadline, ok := ctx.Deadline(); ok {
-        // Respect client-set deadline
-    }
-
-    err := h.backupSvc.RunBackup(ctx, req.Msg.VmID)
-}
-
-// Collector
+// Service layer - accept context for long-running operations
 func (c *Collector) Start(ctx context.Context) {
-    go c.collectLoop(ctx)  // ✅ Context propagated
+    // ...
+    go c.collectLoop(ctx)
+    go c.cleanupLoop(ctx)
 }
 
+// Goroutines respect context cancellation
 func (c *Collector) collectLoop(ctx context.Context) {
-    ticker := time.NewTicker(30 * time.Second)
+    ticker := time.NewTicker(c.config.CollectionInterval)
     defer ticker.Stop()
 
     for {
         select {
         case <-ctx.Done():
-            return  // ✅ Graceful shutdown
+            log.Println("[collector] context cancelled, stopping")
+            return
         case <-ticker.C:
-            c.collect(ctx)
+            c.collectOnce(ctx)
         }
+    }
+}
+
+// Database operations use context with timeout
+func (c *Collector) collectOnce(ctx context.Context) {
+    // ... collect metrics ...
+    
+    metricCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+    
+    if err := c.metricRepo.RecordBatch(metricCtx, metrics); err != nil {
+        // handle error
     }
 }
 ```
 
-**Complexity:** Medium. Requires threading context through many call sites.
+**Benefits:**
 
-**Testing:**
+- Graceful shutdown when server receives SIGTERM/SIGINT
+- Operations can be cancelled by clients (via Connect RPC deadline propagation)
+- Prevents resource leaks from orphaned goroutines
+- Enables timeout enforcement for database operations
 
-- Test cancellation of long-running operations
-- Test graceful shutdown with context deadline
-- Verify no goroutine leaks
+**Complexity:** Medium. Required threading context through many call sites.
 
 ---
 

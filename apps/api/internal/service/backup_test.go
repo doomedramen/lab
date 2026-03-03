@@ -238,7 +238,7 @@ func TestBackupService_ListBackups(t *testing.T) {
 	// Add a test VM
 	mockVMRepo.vms[100] = &model.VM{VMID: 100, Name: "test-vm"}
 
-	service := NewBackupService(mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
+	service := NewBackupService(context.Background(), mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
 	defer service.StopScheduler()
 
 	ctx := context.Background()
@@ -265,7 +265,7 @@ func TestBackupService_CreateBackup_VMNotFound(t *testing.T) {
 	mockVMRepo := &MockVMRepo{vms: make(map[int]*model.VM)}
 	mockTaskRepo := NewMockTaskRepository()
 
-	service := NewBackupService(mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
+	service := NewBackupService(context.Background(), mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
 	defer service.StopScheduler()
 
 	ctx := context.Background()
@@ -289,7 +289,7 @@ func TestBackupService_CreateBackup_Success(t *testing.T) {
 	// Add a test VM
 	mockVMRepo.vms[100] = &model.VM{VMID: 100, Name: "test-vm"}
 
-	service := NewBackupService(mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
+	service := NewBackupService(context.Background(), mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
 	defer service.StopScheduler()
 
 	ctx := context.Background()
@@ -324,7 +324,7 @@ func TestBackupService_ModelToProto(t *testing.T) {
 	mockVMRepo := &MockVMRepo{vms: make(map[int]*model.VM)}
 	mockTaskRepo := NewMockTaskRepository()
 
-	service := NewBackupService(mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
+	service := NewBackupService(context.Background(), mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
 	defer service.StopScheduler()
 
 	modelBackup := &model.Backup{
@@ -365,7 +365,7 @@ func TestBackupService_ScheduleModelToProto(t *testing.T) {
 	mockVMRepo := &MockVMRepo{vms: make(map[int]*model.VM)}
 	mockTaskRepo := NewMockTaskRepository()
 
-	service := NewBackupService(mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
+	service := NewBackupService(context.Background(), mockBackupRepo, mockScheduleRepo, mockBackupLib, mockVMRepo, NewTaskService(mockTaskRepo))
 	defer service.StopScheduler()
 
 	modelSchedule := &model.BackupSchedule{

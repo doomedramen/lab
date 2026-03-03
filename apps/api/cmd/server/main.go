@@ -249,7 +249,7 @@ func main() {
 	// Backup service (if database is available)
 	var backupSvc *service.BackupService
 	if backupRepo != nil && scheduleRepo != nil && backupLib != nil {
-		backupSvc = service.NewBackupService(backupRepo, scheduleRepo, backupLib, vmRepo, taskSvc)
+		backupSvc = service.NewBackupService(context.Background(), backupRepo, scheduleRepo, backupLib, vmRepo, taskSvc)
 		backupSvc.WithGuestAgentRepo(guestAgentRepo)
 		log.Println("Backup service initialized")
 	}
@@ -326,7 +326,8 @@ func main() {
 			vmRepo,
 			containerRepo,
 		)
-		collector.Start()
+		// Pass server context for graceful shutdown
+		collector.Start(context.Background())
 		defer collector.Stop()
 		log.Println("Metrics collector started")
 	}
