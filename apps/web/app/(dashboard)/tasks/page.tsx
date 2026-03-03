@@ -12,6 +12,18 @@ import { TaskStatus } from "@/lib/gen/lab/v1/task_pb"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
 
+// Template data for shimmer
+const templateTasks = Array.from({ length: 5 }).map((_, i) => ({
+  id: `task-template-${i}`,
+  type: 1, // Backup
+  resourceType: 1, // VM
+  resourceId: "vm-100",
+  status: TaskStatus.RUNNING,
+  progress: 45,
+  message: "Performing backup...",
+  createdAt: { seconds: BigInt(Math.floor(Date.now() / 1000)), nanos: 0 },
+})) as any
+
 function TaskStatusBadge({ status }: { status: TaskStatus }) {
   const config: Record<TaskStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
     [TaskStatus.UNSPECIFIED]: { label: "Unknown", variant: "secondary", icon: <AlertCircle className="h-3 w-3" /> },
@@ -63,6 +75,83 @@ function ResourceTypeBadge({ resourceType }: { resourceType: number }) {
   }
 
   return <Badge variant="outline">{typeLabels[resourceType] || "Unknown"}</Badge>
+}
+
+function TasksTableBody({ tasks, onCancel, cancelPending }: { 
+  tasks: any[]
+  onCancel: (id: string) => void
+  cancelPending: boolean 
+}) {
+  if (tasks.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={8} className="h-24 text-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Activity className="h-8 w-8 opacity-50" />
+            <p>No tasks found</p>
+          </div>
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  return (
+    <>
+      {tasks.map((task) => (
+        <TableRow key={task.id}>
+          <TableCell className="font-mono text-xs">{task.id.slice(0, 8)}...</TableCell>
+          <TableCell>
+            <TaskTypeBadge type={task.type} />
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <ResourceTypeBadge resourceType={task.resourceType} />
+              <span className="text-sm text-muted-foreground">{task.resourceId}</span>
+            </div>
+          </TableCell>
+          <TableCell>
+            <TaskStatusBadge status={task.status} />
+          </TableCell>
+          <TableCell>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{task.progress}%</span>
+              </div>
+              <Progress value={task.progress} className="h-2" />
+            </div>
+          </TableCell>
+          <TableCell className="text-sm text-muted-foreground">
+            {task.createdAt && (
+              formatDistanceToNow(timestampToDate(task.createdAt), { addSuffix: true })
+            )}
+          </TableCell>
+          <TableCell className="text-sm text-muted-foreground">
+            {task.createdAt && task.completedAt ? (
+              formatDistanceToNow(timestampToDate(task.createdAt), { addSuffix: false })
+            ) : task.status === TaskStatus.RUNNING ? (
+              <span className="text-green-600">Running...</span>
+            ) : (
+              "-"
+            )}
+          </TableCell>
+          <TableCell>
+            {task.status === TaskStatus.RUNNING || task.status === TaskStatus.PENDING ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onCancel(task.id)}
+                disabled={cancelPending}
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            ) : (
+              "-"
+            )}
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  )
 }
 
 function TasksContent() {
@@ -130,84 +219,13 @@ function TasksContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              // Shimmer loading rows
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Shimmer loading><div className="h-4 w-32" /></Shimmer></TableCell>
-                  <TableCell><Shimmer loading><div className="h-4 w-24" /></Shimmer></TableCell>
-                  <TableCell><Shimmer loading><div className="h-4 w-20" /></Shimmer></TableCell>
-                  <TableCell><Shimmer loading><div className="h-4 w-20" /></Shimmer></TableCell>
-                  <TableCell><Shimmer loading><div className="h-2 w-full" /></Shimmer></TableCell>
-                  <TableCell><Shimmer loading><div className="h-4 w-28" /></Shimmer></TableCell>
-                  <TableCell><Shimmer loading><div className="h-4 w-16" /></Shimmer></TableCell>
-                  <TableCell><Shimmer loading><div className="h-8 w-20" /></Shimmer></TableCell>
-                </TableRow>
-              ))
-            ) : tasks && tasks.length > 0 ? (
-              tasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="font-mono text-xs">{task.id.slice(0, 8)}...</TableCell>
-                  <TableCell>
-                    <TaskTypeBadge type={task.type} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <ResourceTypeBadge resourceType={task.resourceType} />
-                      <span className="text-sm text-muted-foreground">{task.resourceId}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <TaskStatusBadge status={task.status} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{task.progress}%</span>
-                      </div>
-                      <Progress value={task.progress} className="h-2" />
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {task.createdAt && (
-                      formatDistanceToNow(timestampToDate(task.createdAt), { addSuffix: true })
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {task.createdAt && task.completedAt ? (
-                      formatDistanceToNow(timestampToDate(task.createdAt), { addSuffix: false })
-                    ) : task.status === TaskStatus.RUNNING ? (
-                      <span className="text-green-600">Running...</span>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {task.status === TaskStatus.RUNNING || task.status === TaskStatus.PENDING ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCancel(task.id)}
-                        disabled={cancelTask.isPending}
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Activity className="h-8 w-8 opacity-50" />
-                    <p>No tasks found</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
+            <Shimmer loading={isLoading} templateProps={{ tasks: templateTasks }}>
+              <TasksTableBody 
+                tasks={tasks || templateTasks} 
+                onCancel={handleCancel}
+                cancelPending={cancelTask.isPending}
+              />
+            </Shimmer>
           </TableBody>
         </Table>
       </div>

@@ -29,7 +29,6 @@ import { nodeStatusToString, vmStatusToString, containerStatusToString } from "@
 import { ScrollArea, ScrollBar } from "@workspace/ui/components/scroll-area"
 import { useState, useCallback } from "react"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Shimmer } from "@workspace/components/shimmer"
 import { useAuth } from "@/lib/auth"
 
 const navItems = [
@@ -72,12 +71,6 @@ function ResourceTree({ searchQuery = "" }: { searchQuery?: string }) {
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
     )
   }
-
-  // Template data for shimmer
-  const templateNodes = [
-    { id: "node-1", name: "lab-prod-01", status: "online" },
-    { id: "node-2", name: "lab-prod-02", status: "online" },
-  ]
 
   if (isLoading) {
     return (

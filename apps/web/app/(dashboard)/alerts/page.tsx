@@ -23,6 +23,35 @@ import { Shimmer } from "@workspace/components/shimmer"
 import { RefreshCw, Bell, BellOff, Plus, Trash2, Edit, Check, X, AlertTriangle, Info, AlertCircle, Mail, Webhook, Settings } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
+// --- Template Data for Shimmer ---
+
+const templateAlerts = Array.from({ length: 5 }).map((_, i) => ({
+  id: `alert-template-${i}`,
+  severity: AlertSeverity.WARNING,
+  ruleName: "High CPU Usage",
+  message: "CPU usage exceeded 80% on node-01",
+  entityName: "node-01",
+  status: AlertStatus.OPEN,
+  firedAt: new Date().toISOString(),
+})) as any
+
+const templateRules = Array.from({ length: 3 }).map((_, i) => ({
+  id: `rule-template-${i}`,
+  name: "Loading Rule...",
+  type: AlertRuleType.STORAGE_POOL_USAGE,
+  threshold: 80,
+  channelId: "channel-1",
+  enabled: true,
+})) as any
+
+const templateChannels = Array.from({ length: 2 }).map((_, i) => ({
+  id: `channel-template-${i}`,
+  name: "Loading Channel...",
+  type: NotificationChannelType.EMAIL,
+  enabled: true,
+  config: {},
+})) as any
+
 // Helper functions
 function alertRuleTypeToString(type: AlertRuleType): string {
   const labels: Record<AlertRuleType, string> = {
@@ -66,6 +95,75 @@ function statusToBadge(status: AlertStatus) {
   }
   const { label, variant } = config[status] || config[AlertStatus.UNSPECIFIED]
   return <Badge variant={variant}>{label}</Badge>
+}
+
+function AlertsTableBody({ 
+  alerts, 
+  onAcknowledge, 
+  onResolve, 
+  acknowledgePending, 
+  resolvePending 
+}: { 
+  alerts: any[]
+  onAcknowledge: (id: string) => void
+  onResolve: (id: string) => void
+  acknowledgePending: boolean
+  resolvePending: boolean
+}) {
+  if (alerts.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+          No alerts found
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  return (
+    <>
+      {alerts.map((alert) => (
+        <TableRow key={alert.id}>
+          <TableCell>{severityToBadge(alert.severity)}</TableCell>
+          <TableCell className="font-medium">{alert.ruleName}</TableCell>
+          <TableCell className="max-w-[300px] truncate">{alert.message}</TableCell>
+          <TableCell>
+            {alert.entityName && (
+              <span className="text-sm">{alert.entityName}</span>
+            )}
+          </TableCell>
+          <TableCell>{statusToBadge(alert.status)}</TableCell>
+          <TableCell className="text-sm text-muted-foreground">
+            {formatDistanceToNow(new Date(alert.firedAt), { addSuffix: true })}
+          </TableCell>
+          <TableCell>
+            <div className="flex gap-1">
+              {alert.status === AlertStatus.OPEN && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAcknowledge(alert.id)}
+                  disabled={acknowledgePending}
+                >
+                  <Check className="h-3 w-3" />
+                </Button>
+              )}
+              {(alert.status === AlertStatus.OPEN || alert.status === AlertStatus.ACKNOWLEDGED) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onResolve(alert.id)}
+                  disabled={resolvePending}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  )
 }
 
 // Alerts Tab Content
@@ -121,66 +219,69 @@ function AlertsTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <TableCell key={j}><Shimmer loading><div className="h-4 w-20" /></Shimmer></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : data?.alerts && data.alerts.length > 0 ? (
-              data.alerts.map((alert) => (
-                <TableRow key={alert.id}>
-                  <TableCell>{severityToBadge(alert.severity)}</TableCell>
-                  <TableCell className="font-medium">{alert.ruleName}</TableCell>
-                  <TableCell className="max-w-[300px] truncate">{alert.message}</TableCell>
-                  <TableCell>
-                    {alert.entityName && (
-                      <span className="text-sm">{alert.entityName}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{statusToBadge(alert.status)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatDistanceToNow(new Date(alert.firedAt), { addSuffix: true })}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {alert.status === AlertStatus.OPEN && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => acknowledgeAlert.mutate(alert.id)}
-                          disabled={acknowledgeAlert.isPending}
-                        >
-                          <Check className="h-3 w-3" />
-                        </Button>
-                      )}
-                      {(alert.status === AlertStatus.OPEN || alert.status === AlertStatus.ACKNOWLEDGED) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => resolveAlert.mutate(alert.id)}
-                          disabled={resolveAlert.isPending}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No alerts found
-                </TableCell>
-              </TableRow>
-            )}
+            <Shimmer loading={isLoading} templateProps={{ alerts: templateAlerts }}>
+              <AlertsTableBody 
+                alerts={data?.alerts || templateAlerts} 
+                onAcknowledge={(id) => acknowledgeAlert.mutate(id)}
+                onResolve={(id) => resolveAlert.mutate(id)}
+                acknowledgePending={acknowledgeAlert.isPending}
+                resolvePending={resolveAlert.isPending}
+              />
+            </Shimmer>
           </TableBody>
         </Table>
       </div>
     </div>
+  )
+}
+
+function RulesTableBody({ 
+  rules, 
+  channels, 
+  onEdit, 
+  onDelete 
+}: { 
+  rules: any[]
+  channels?: any[]
+  onEdit: (rule: any) => void
+  onDelete: (id: string) => void
+}) {
+  if (rules.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+          No alert rules configured
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  return (
+    <>
+      {rules.map((rule) => (
+        <TableRow key={rule.id}>
+          <TableCell className="font-medium">{rule.name}</TableCell>
+          <TableCell>{alertRuleTypeToString(rule.type)}</TableCell>
+          <TableCell>{rule.threshold ? `${rule.threshold}%` : "-"}</TableCell>
+          <TableCell>{channels?.find(c => c.id === rule.channelId)?.name || rule.channelId}</TableCell>
+          <TableCell>
+            <Badge variant={rule.enabled ? "default" : "secondary"}>
+              {rule.enabled ? "Enabled" : "Disabled"}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="sm" onClick={() => onEdit(rule)}>
+                <Edit className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => onDelete(rule.id)}>
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
   )
 }
 
@@ -214,7 +315,7 @@ function RulesTab() {
     setEditingRule(null)
   }
 
-  const handleOpenDialog = (rule?: typeof rules extends (infer T)[] | undefined ? T : never) => {
+  const handleOpenDialog = (rule?: any) => {
     if (rule) {
       setEditingRule(rule.id)
       setFormData({
@@ -314,45 +415,14 @@ function RulesTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <TableCell key={j}><Shimmer loading><div className="h-4 w-20" /></Shimmer></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : rules && rules.length > 0 ? (
-              rules.map((rule) => (
-                <TableRow key={rule.id}>
-                  <TableCell className="font-medium">{rule.name}</TableCell>
-                  <TableCell>{alertRuleTypeToString(rule.type)}</TableCell>
-                  <TableCell>{rule.threshold ? `${rule.threshold}%` : "-"}</TableCell>
-                  <TableCell>{channels?.find(c => c.id === rule.channelId)?.name || rule.channelId}</TableCell>
-                  <TableCell>
-                    <Badge variant={rule.enabled ? "default" : "secondary"}>
-                      {rule.enabled ? "Enabled" : "Disabled"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(rule)}>
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(rule.id)}>
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No alert rules configured
-                </TableCell>
-              </TableRow>
-            )}
+            <Shimmer loading={isLoading} templateProps={{ rules: templateRules }}>
+              <RulesTableBody 
+                rules={rules || templateRules} 
+                channels={channels}
+                onEdit={handleOpenDialog}
+                onDelete={handleDelete}
+              />
+            </Shimmer>
           </TableBody>
         </Table>
       </div>
@@ -450,6 +520,59 @@ function RulesTab() {
   )
 }
 
+function ChannelsGrid({ channels, onEdit, onDelete }: { 
+  channels: any[]
+  onEdit: (channel: any) => void
+  onDelete: (id: string) => void
+}) {
+  if (channels.length === 0) {
+    return (
+      <Card className="col-span-2">
+        <CardContent className="py-8 text-center text-muted-foreground">
+          No notification channels configured
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <>
+      {channels.map((channel) => (
+        <Card key={channel.id}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                {channel.type === NotificationChannelType.EMAIL ? (
+                  <Mail className="h-4 w-4" />
+                ) : (
+                  <Webhook className="h-4 w-4" />
+                )}
+                {channel.name}
+              </CardTitle>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={() => onEdit(channel)}>
+                  <Edit className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => onDelete(channel.id)}>
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{channelTypeToString(channel.type)}</span>
+              <Badge variant={channel.enabled ? "default" : "secondary"}>
+                {channel.enabled ? "Enabled" : "Disabled"}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  )
+}
+
 // Channels Tab Content
 function ChannelsTab() {
   const { data: channels, isLoading, error, refetch } = useNotificationChannels()
@@ -473,7 +596,7 @@ function ChannelsTab() {
     setEditingChannel(null)
   }
 
-  const handleOpenDialog = (channel?: typeof channels extends (infer T)[] | undefined ? T : never) => {
+  const handleOpenDialog = (channel?: any) => {
     if (channel) {
       setEditingChannel(channel.id)
       setFormData({
@@ -551,57 +674,13 @@ function ChannelsTab() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {isLoading ? (
-          Array.from({ length: 2 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Shimmer loading><div className="h-5 w-32" /></Shimmer>
-              </CardHeader>
-              <CardContent>
-                <Shimmer loading><div className="h-4 w-48" /></Shimmer>
-              </CardContent>
-            </Card>
-          ))
-        ) : channels && channels.length > 0 ? (
-          channels.map((channel) => (
-            <Card key={channel.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    {channel.type === NotificationChannelType.EMAIL ? (
-                      <Mail className="h-4 w-4" />
-                    ) : (
-                      <Webhook className="h-4 w-4" />
-                    )}
-                    {channel.name}
-                  </CardTitle>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(channel)}>
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(channel.id)}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{channelTypeToString(channel.type)}</span>
-                  <Badge variant={channel.enabled ? "default" : "secondary"}>
-                    {channel.enabled ? "Enabled" : "Disabled"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card className="col-span-2">
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No notification channels configured
-            </CardContent>
-          </Card>
-        )}
+        <Shimmer loading={isLoading} templateProps={{ channels: templateChannels }}>
+          <ChannelsGrid 
+            channels={channels || templateChannels} 
+            onEdit={handleOpenDialog}
+            onDelete={handleDelete}
+          />
+        </Shimmer>
       </div>
 
       {/* Channel Dialog */}
