@@ -771,8 +771,9 @@ func TestAuthService_Login_MFAFlow(t *testing.T) {
 func TestDefaultAuthServiceConfig(t *testing.T) {
 	config := DefaultAuthServiceConfig()
 
-	if string(config.JWTSecret) != "change-me-in-production" {
-		t.Error("default JWT secret mismatch")
+	// JWTSecret should be nil - must be set explicitly
+	if config.JWTSecret != nil {
+		t.Error("default JWTSecret should be nil, must be set explicitly")
 	}
 	if config.AccessTokenExp != 15*time.Minute {
 		t.Errorf("AccessTokenExp: got %v, want 15m", config.AccessTokenExp)

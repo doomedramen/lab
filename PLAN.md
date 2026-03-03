@@ -1096,3 +1096,781 @@ locations, and users should be able to override defaults without code changes.
 
 **Complexity:** Low-Medium. Mostly mechanical refactoring to thread config through
 to repository constructors and replace string literals with config lookups.
+
+---
+
+## Phase 7 — API Code Quality & Security
+
+Critical technical debt and security improvements identified during code review.
+These items address security vulnerabilities, architectural issues, and maintainability
+concerns in the Go API backend.
+
+---
+
+### 7.1 Remove Insecure JWT Defaults
+
+**Status:** ✅ **COMPLETED**
+
+**Why.** The codebase contained hardcoded insecure JWT secrets that could be
+accidentally used in production, allowing attackers to forge authentication tokens.
+
+**Changes made:**
+
+| Location | Change |
+|----------|--------|
+| `apps/api/pkg/auth/jwt.go` | Changed `DefaultConfig()` to return `SecretKey: nil` instead of insecure default |
+| `apps/api/internal/service/auth.go` | Changed `DefaultAuthServiceConfig()` to return `JWTSecret: nil` instead of insecure default |
+| `apps/api/cmd/server/main.go` | Added strict validation: fails fast if JWT secret is empty or < 16 characters |
+| `apps/api/config.example.yaml` | Updated to show `jwt_secret: ""` with prominent warning |
+| `apps/api/pkg/auth/jwt_test.go` | Updated test to expect `nil` secret instead of insecure default |
+| `apps/api/internal/service/auth_test.go` | Updated test to expect `nil` secret instead of insecure default |
+
+**Validation:**
+
+- Server now fails to start if `jwt_secret` is not configured
+- Minimum 16 character length enforced
+- Clear error message with instruction: `openssl rand -base64 32`
+
+**Complexity:** Low. Simple validation logic, but critical for security.
+
+---
+
+### 7.2 Refactor Monolithic main.go
+
+**Status:** ⏳ **PENDING**
+
+**Why.** `cmd/server/main.go` is 360+ lines with all dependency injection, service
+initialization, and server setup in a single function. This makes it hard to:
+- Understand initialization order
+- Test initialization logic
+- Add new services without increasing complexity
+- Identify circular dependencies
+
+**Deliverable.** Modular initialization functions with clear separation of concerns.
+
+**Proposed structure:**
+
+```go
+func main() {
+    cfg := config.Load()
+    setupLogging(cfg)
+    
+    db := initDatabase(cfg)
+    defer db.Close()
+    
+    repos := initRepositories(db, cfg)
+    services := initServices(repos, cfg)
+    handlers := initHandlers(services, cfg)
+    
+    r := router.Router(handlers)
+    srv := initServer(r, cfg)
+    
+    if err := runServer(srv); err != nil {
+        log.Fatalf("Server error: %v", err)
+    }
+}
+```
+
+**Files to create/modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/cmd/server/main.go` | Refactor into modular init functions |
+| `apps/api/cmd/server/init_database.go` | New — Database initialization and migrations |
+| `apps/api/cmd/server/init_repositories.go` | New — Repository initialization |
+| `apps/api/cmd/server/init_services.go` | New — Service initialization with dependency injection |
+| `apps/api/cmd/server/init_handlers.go` | New — Handler initialization |
+| `apps/api/cmd/server/init_server.go` | New — HTTP server setup and graceful shutdown |
+
+**Implementation notes:**
+
+- Keep dependency injection explicit (no magic containers)
+- Maintain initialization order: DB → Repos → Services → Handlers → Router → Server
+- Add logging for each initialization step
+- Consider using `google/wire` for compile-time dependency injection (future enhancement)
+- Preserve graceful shutdown logic
+
+**Complexity:** Medium. Mechanical refactoring but requires careful attention to
+dependency order and error handling.
+
+**Testing:**
+
+- Add unit tests for individual init functions
+- Add integration test for full initialization
+
+---
+
+### 7.3 Add Input Validation Layer
+
+**Status:** ⏳ **PENDING**
+
+**Why.** Handlers and services accept requests without validation, leading to:
+- Invalid data entering the system
+- Unclear error messages for users
+- Potential security vulnerabilities (e.g., injection attacks)
+- Inconsistent validation across endpoints
+
+**Current gaps:**
+
+| Endpoint | Missing Validation | Risk |
+|----------|-------------------|------|
+| `VMService.CreateVM` | No validation of VM name, CPU, memory ranges | MEDIUM |
+| `VMService.UpdateVM` | No validation of field values | MEDIUM |
+| `AuthService.Register` | Password validation exists but not email format | LOW |
+| `StorageService.CreateDisk` | No validation of disk size, path | MEDIUM |
+| All string inputs | No length limits, sanitization | LOW-MEDIUM |
+
+**Deliverable.** Comprehensive input validation for all public APIs.
+
+**Files to create/modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/internal/validator/validator.go` | New — Central validation package with common validators |
+| `apps/api/internal/validator/vm.go` | New — VM-specific validation rules |
+| `apps/api/internal/validator/auth.go` | New — Auth-specific validation rules |
+| `apps/api/internal/validator/storage.go` | New — Storage validation rules |
+| `apps/api/internal/service/vm.go` | Add validation in `CreateVM`, `UpdateVM` |
+| `apps/api/internal/service/auth.go` | Add email format validation |
+| `apps/api/internal/service/storage.go` | Add disk validation |
+| `apps/api/internal/handler/*.go` | Return validation errors as `INVALID_ARGUMENT` |
+
+**Proposed validator structure:**
+
+```go
+package validator
+
+// ValidationError represents a validation failure
+type ValidationError struct {
+    Field   string `json:"field"`
+    Message string `json:"message"`
+}
+
+func (e ValidationError) Error() string {
+    return fmt.Sprintf("%s: %s", e.Field, e.Message)
+}
+
+// Common validators
+func ValidateVMName(name string) error {
+    if len(name) < 1 || len(name) > 64 {
+        return ValidationError{"name", "must be 1-64 characters"}
+    }
+    if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(name) {
+        return ValidationError{"name", "invalid characters"}
+    }
+    return nil
+}
+
+func ValidateMemoryGB(memory float64) error {
+    if memory < 0.5 || memory > 1024 {
+        return ValidationError{"memory", "must be between 0.5 and 1024 GB"}
+    }
+    return nil
+}
+
+// Service integration
+func (s *VMService) CreateVM(ctx context.Context, req *model.VMCreateRequest) (*model.VM, error) {
+    if err := validator.ValidateVMCreateRequest(req); err != nil {
+        return nil, err
+    }
+    // ... existing logic
+}
+```
+
+**Validation rules to implement:**
+
+| Resource | Field | Rule |
+|----------|-------|------|
+| VM | Name | 1-64 chars, alphanumeric + `_ -` |
+| VM | Memory | 0.5 - 1024 GB |
+| VM | CPU Cores | 1 - 128 |
+| VM | Disk Size | 1 GB - 10 TB |
+| User | Email | Valid email format |
+| User | Password | 8+ chars, uppercase, lowercase, number, special char |
+| Storage | Disk Path | No path traversal (`..`), absolute path only |
+| All | Strings | Max 1024 chars for descriptions |
+
+**Complexity:** Medium. Requires adding validation to many endpoints but pattern
+is straightforward.
+
+**Testing:**
+
+- Unit tests for each validator function
+- Integration tests for API endpoints with invalid input
+- Fuzz testing for edge cases
+
+---
+
+### 7.4 Consistent Error Handling Policy
+
+**Status:** ⏳ **PENDING**
+
+**Why.** The codebase has inconsistent error handling:
+- Some places use `log.Fatalf` (exits process)
+- Others return errors gracefully
+- Some swallow errors with `Warning:` logs
+
+**Current inconsistencies:**
+
+```go
+// Exits process
+log.Fatalf("Failed to connect to libvirt: %v", err)
+
+// Degrades gracefully
+log.Printf("Warning: Failed to initialize SQLite: %v", err)
+
+// Returns error
+if err != nil {
+    return nil, err
+}
+```
+
+**Deliverable.** Documented error handling policy with consistent patterns.
+
+**Files to create/modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/internal/errors/errors.go` | New — Define error types and handling policy |
+| `apps/api/cmd/server/main.go` | Apply error policy consistently |
+| `apps/api/internal/service/*.go` | Replace `log.Fatalf` with error returns where appropriate |
+| `apps/api/ERROR_HANDLING.md` | New — Document error handling guidelines |
+
+**Proposed error handling policy:**
+
+| Scenario | Action | Rationale |
+|----------|--------|-----------|
+| Configuration errors (missing required config) | `log.Fatalf` | Cannot start without config |
+| Database connection failure | `log.Fatalf` | Core dependency |
+| Optional service unavailable (e.g., LXC) | Log warning, disable feature | Graceful degradation |
+| User input errors | Return `INVALID_ARGUMENT` error | User-fixable |
+| Resource not found | Return `NOT_FOUND` error | Expected condition |
+| Libvirt operation failure | Return error with context | Retryable |
+| Internal server errors | Log + return `INTERNAL` error | Bug |
+
+**Custom error types:**
+
+```go
+package errors
+
+type ErrorType int
+
+const (
+    Unknown ErrorType = iota
+    InvalidArgument
+    NotFound
+    AlreadyExists
+    PermissionDenied
+    Unauthenticated
+    Internal
+    Unavailable
+)
+
+type APIError struct {
+    Type    ErrorType
+    Message string
+    Cause   error
+}
+
+func (e *APIError) Error() string {
+    if e.Cause != nil {
+        return fmt.Sprintf("%s: %v", e.Message, e.Cause)
+    }
+    return e.Message
+}
+
+// Helper functions
+func NewInvalidArgument(format string, args ...interface{}) *APIError {
+    return &APIError{Type: InvalidArgument, Message: fmt.Sprintf(format, args...)}
+}
+
+func NewNotFound(format string, args ...interface{}) *APIError {
+    return &APIError{Type: NotFound, Message: fmt.Sprintf(format, args...)}
+}
+
+func WrapInternal(err error, message string) *APIError {
+    return &APIError{Type: Internal, Message: message, Cause: err}
+}
+```
+
+**Complexity:** Medium. Requires auditing all error handling and updating
+many files, but pattern is straightforward.
+
+**Testing:**
+
+- Add tests for error type conversion
+- Verify error messages are user-friendly
+- Test graceful degradation paths
+
+---
+
+### 7.5 Decouple from libvirt (Interface Extraction)
+
+**Status:** ⏳ **PENDING**
+
+**Why.** Services are tightly coupled to libvirt implementations:
+- Direct imports of `libvirt.org/go/libvirt` in service layer
+- Hard to test without libvirt
+- Hard to support alternative backends (e.g., Docker-only mode)
+- Violates dependency inversion principle
+
+**Current tight coupling:**
+
+```go
+// In internal/service/vm.go
+import libvirt "libvirt.org/go/libvirt"
+
+// Direct libvirt calls
+if state == libvirt.DOMAIN_RUNNING {
+    // ...
+}
+```
+
+**Deliverable.** Extract libvirt operations behind interfaces for testability
+and future backend flexibility.
+
+**Files to create/modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/internal/repository/libvirt/interfaces.go` | New — Define interfaces for libvirt operations |
+| `apps/api/internal/repository/libvirt/vm.go` | Implement `VMProvider` interface |
+| `apps/api/internal/repository/libvirt/network.go` | Implement `NetworkProvider` interface |
+| `apps/api/internal/repository/libvirt/storage.go` | Implement `StorageProvider` interface |
+| `apps/api/internal/service/vm.go` | Depend on interfaces, not concrete libvirt types |
+| `apps/api/internal/service/*.go` | Update to use interfaces |
+| `apps/api/pkg/libvirtx/mock.go` | New — Mock implementation for testing |
+
+**Proposed interfaces:**
+
+```go
+package libvirt
+
+// VMProvider abstracts libvirt VM operations
+type VMProvider interface {
+    GetDomainState(vmID int) (DomainState, error)
+    GetDomainXML(vmID int) (string, error)
+    DefineDomain(xml string) (int, error)
+    StartDomain(vmID int) error
+    StopDomain(vmID int) error
+    // ... other VM operations
+}
+
+// NetworkProvider abstracts libvirt network operations
+type NetworkProvider interface {
+    ListNetworks() ([]Network, error)
+    CreateNetwork(cfg NetworkConfig) error
+    // ... other network operations
+}
+
+// StorageProvider abstracts libvirt storage operations
+type StorageProvider interface {
+    ListStoragePools() ([]StoragePool, error)
+    CreateStorageDisk(pool string, cfg DiskConfig) error
+    // ... other storage operations
+}
+```
+
+**Service layer usage:**
+
+```go
+type VMService struct {
+    vmProvider libvirt.VMProvider
+    // ... other dependencies
+}
+
+func NewVMService(vmProvider libvirt.VMProvider, ...) *VMService {
+    return &VMService{
+        vmProvider: vmProvider,
+        // ...
+    }
+}
+```
+
+**Complexity:** High. Requires careful extraction of libvirt dependencies
+while maintaining functionality. Should be done incrementally.
+
+**Testing:**
+
+- Add unit tests using mock providers
+- Verify interface coverage for all libvirt operations used
+
+---
+
+### 7.6 Configure SQLite Connection Pool
+
+**Status:** ⏳ **PENDING**
+
+**Why.** SQLite connection is used without proper pool configuration, which can
+lead to:
+- "database is locked" errors under concurrent load
+- Connection leaks
+- Poor performance with multiple concurrent requests
+
+**Current usage:**
+
+```go
+// In cmd/server/main.go
+db, err := sqlitePkg.New(...)
+// No SetMaxOpenConns, SetMaxIdleConns, SetConnMaxLifetime
+```
+
+**Deliverable.** Proper SQLite connection pool configuration.
+
+**Files to modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/pkg/sqlite/db.go` | Add connection pool configuration |
+| `apps/api/cmd/server/main.go` | Verify pool config after db creation |
+
+**Recommended configuration:**
+
+```go
+// SQLite allows only one writer at a time
+db.SetMaxOpenConns(1)  // Serialize writes
+db.SetMaxIdleConns(1)  // Keep one connection warm
+db.SetConnMaxLifetime(time.Hour)  // Recycle connections periodically
+
+// Enable WAL mode for better concurrency
+_, err = db.Exec("PRAGMA journal_mode=WAL")
+if err != nil {
+    return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
+}
+
+// Set busy timeout (wait up to 5 seconds for lock)
+_, err = db.Exec("PRAGMA busy_timeout=5000")
+if err != nil {
+    return nil, fmt.Errorf("failed to set busy timeout: %w", err)
+}
+```
+
+**Complexity:** Low. Simple configuration change.
+
+**Testing:**
+
+- Load test with concurrent requests
+- Verify no "database is locked" errors under normal load
+- Monitor connection pool metrics
+
+---
+
+### 7.7 Add Global Rate Limiting
+
+**Status:** ⏳ **PENDING**
+
+**Why.** Rate limiting is only applied to auth endpoints (5 req/s). Other
+endpoints have no protection against:
+- Accidental runaway scripts
+- Denial of service attacks
+- Resource exhaustion (e.g., flooding VM creation)
+
+**Current state:**
+
+```go
+// Only auth endpoints are rate-limited
+authRateLimiter := appmiddleware.NewRateLimiter(rate.Limit(5), 10)
+// Used only for Login, Register, MFA endpoints
+```
+
+**Deliverable.** Global rate limiting with per-endpoint overrides.
+
+**Files to create/modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/internal/middleware/ratelimit.go` | Add global rate limiter, per-endpoint limits |
+| `apps/api/internal/router/router.go` | Apply rate limiting middleware |
+| `apps/api/internal/connectsvc/*.go` | Add stricter limits for expensive operations |
+
+**Proposed rate limit tiers:**
+
+| Tier | Limit | Endpoints |
+|------|-------|-----------|
+| Global | 100 req/s, burst 200 | All endpoints |
+| Auth | 5 req/s, burst 10 | Login, Register, MFA |
+| Expensive | 10 req/s, burst 20 | VM create/delete, backup, snapshot |
+| Read-only | 200 req/s, burst 500 | List operations, metrics |
+
+**Implementation:**
+
+```go
+// In router.go
+// Global rate limiter
+globalLimiter := NewRateLimiter(rate.Limit(100), 200)
+r.Use(globalLimiter.Middleware)
+
+// Per-endpoint overrides in Connect RPC handlers
+connectMux.Handle(labv1connect.NewVmServiceHandler(
+    connectsvc.NewVmServiceServer(vmSvc),
+    connect.WithInterceptors(
+        NewRateLimiterInterceptor(rate.Limit(10), 20), // Expensive ops
+        authInterceptor,
+    ),
+))
+```
+
+**Rate limit headers:**
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1647360000
+Retry-After: 60  // When rate limited
+```
+
+**Complexity:** Medium. Requires adding middleware and interceptors.
+
+**Testing:**
+
+- Test rate limit enforcement
+- Test rate limit headers
+- Test per-endpoint overrides
+
+---
+
+### 7.8 Add Context Propagation
+
+**Status:** ⏳ **PENDING**
+
+**Why.** Some goroutines and long-running operations don't propagate context,
+leading to:
+- Operations that can't be cancelled
+- Resource leaks on shutdown
+- No timeout enforcement
+
+**Current gaps:**
+
+```go
+// In internal/service/collector.go
+func (c *Collector) Start() {
+    go c.collectLoop()  // ❌ No context for cancellation
+}
+
+// In various services
+go func() {
+    // Long-running operation without context
+}()
+```
+
+**Deliverable.** Consistent context propagation throughout the codebase.
+
+**Files to modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/internal/service/collector.go` | Add context to `Start(ctx)` and `collectLoop(ctx)` |
+| `apps/api/internal/service/task.go` | Pass context to async task operations |
+| `apps/api/internal/service/backup.go` | Add context to backup operations |
+| `apps/api/internal/service/snapshot.go` | Add context to snapshot operations |
+| `apps/api/internal/handler/*.go` | Extract context from Connect RPC requests |
+
+**Pattern:**
+
+```go
+// Service layer
+func (s *BackupService) RunBackup(ctx context.Context, vmID int) error {
+    // Check for cancellation
+    select {
+    case <-ctx.Done():
+        return ctx.Err()
+    default:
+    }
+
+    // Pass context to repository
+    return s.backupRepo.Create(ctx, backup)
+}
+
+// Handler layer
+func (h *BackupHandler) RunBackup(ctx context.Context, req *connect.Request[...]) {
+    // Extract deadline from RPC if set
+    if deadline, ok := ctx.Deadline(); ok {
+        // Respect client-set deadline
+    }
+
+    err := h.backupSvc.RunBackup(ctx, req.Msg.VmID)
+}
+
+// Collector
+func (c *Collector) Start(ctx context.Context) {
+    go c.collectLoop(ctx)  // ✅ Context propagated
+}
+
+func (c *Collector) collectLoop(ctx context.Context) {
+    ticker := time.NewTicker(30 * time.Second)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-ctx.Done():
+            return  // ✅ Graceful shutdown
+        case <-ticker.C:
+            c.collect(ctx)
+        }
+    }
+}
+```
+
+**Complexity:** Medium. Requires threading context through many call sites.
+
+**Testing:**
+
+- Test cancellation of long-running operations
+- Test graceful shutdown with context deadline
+- Verify no goroutine leaks
+
+---
+
+### 7.9 API Versioning Strategy
+
+**Status:** ⏳ **PENDING**
+
+**Why.** The API is hardcoded as `v1` with no documented migration strategy.
+As the API evolves, breaking changes will require careful version management.
+
+**Current state:**
+
+```protobuf
+// packages/proto/lab/v1/common.proto
+package lab.v1;
+
+service VMService {
+  rpc CreateVM(CreateVMRequest) returns (CreateVMResponse);
+}
+```
+
+**Deliverable.** Documented API versioning and deprecation policy.
+
+**Files to create/modify:**
+
+| File | Change |
+|------|--------|
+| `apps/api/API_VERSIONING.md` | New — Document versioning strategy and deprecation policy |
+| `packages/proto/lab/v1/*.proto` | Add deprecation comments where applicable |
+| `apps/api/internal/connectsvc/*.go` | Add deprecation warnings to handlers |
+| `README.md` | Link to API versioning docs |
+
+**Proposed versioning strategy:**
+
+```markdown
+# API Versioning Strategy
+
+## Versioning Scheme
+
+- Proto packages: `lab.v1`, `lab.v2`, etc.
+- Connect RPC paths: `/lab.v1.VMService/CreateVM`
+- Breaking changes require new version
+
+## Deprecation Policy
+
+1. **Deprecation Notice**: Add `deprecated = true` to proto fields
+2. **Warning Period**: 6 months of warnings in logs and responses
+3. **Sunset**: Remove in next major version
+
+## Response Headers
+
+```
+Deprecation: true
+Sunset: Sat, 01 Mar 2027 00:00:00 GMT
+Link: </lab.v2.VMService>; rel="successor-version"
+```
+
+## Migration Guide
+
+For each major version, provide:
+- Migration guide document
+- Codemods for automated migration (where possible)
+- Compatibility layer (optional, case-by-case)
+```
+
+**Complexity:** Low. Mostly documentation, but requires discipline for future changes.
+
+---
+
+### 7.10 Establish Naming Conventions
+
+**Status:** ⏳ **PENDING**
+
+**Why.** Inconsistent naming makes the codebase harder to navigate:
+- Package naming: `pkg/tus` vs `internal/handler`
+- Constructor naming: `NewAuthService` vs `NewCollector`
+- Variable naming: `repo` vs `repository`, `svc` vs `service`
+
+**Deliverable.** Documented naming conventions.
+
+**Files to create:**
+
+| File | Change |
+|------|--------|
+| `apps/api/STYLE_GUIDE.md` | New — Document naming and style conventions |
+
+**Proposed conventions:**
+
+```markdown
+# Go Style Guide
+
+## Package Naming
+
+- `pkg/*` — Public packages (exported types)
+- `internal/*` — Private packages (unexported types)
+- Use snake_case for package directories: `pkg/sysinfo`, `internal/connectsvc`
+
+## Constructor Naming
+
+- Services: `New<Service>Service`: `NewAuthService`, `NewVMService`
+- Repositories: `New<Repo>Repository`: `NewUserRepository`, `NewVMRepository`
+- Handlers: `New<Handler>Handler`: `NewHealthHandler`, `NewMetricsHandler`
+- Middleware: `New<Middleware>`: `NewAuthInterceptor`, `NewRateLimiter`
+- Utilities: `New<Type>`: `NewJWT`, `NewPassword`, `NewRegistry`
+
+## Variable Naming
+
+- Services: `<type>Svc` or full name: `authSvc`, `vmSvc` or `authService`, `vmService`
+- Repositories: `<type>Repo`: `userRepo`, `vmRepo`
+- Handlers: `<type>Handler`: `healthHandler`, `metricsHandler`
+- Context: always `ctx`
+- Errors: always `err`
+
+## Error Naming
+
+- Error variables: `Err<Resource><Condition>`: `ErrVMNotFound`, `ErrAuthFailed`
+- Error types: `<Condition>Error`: `ValidationError`, `NotFoundError`
+
+## Testing
+
+- Test files: `<file>_test.go`
+- Test functions: `Test<Service><Method><Scenario>`: `TestVMServiceCreateVM_ValidRequest`
+- Table-driven tests: use `name` field for test case description
+```
+
+**Complexity:** Low. Documentation only, but may lead to future refactoring.
+
+---
+
+## Summary — Phase 7 Priority
+
+| Priority | Item | Security | Effort | Impact |
+|----------|------|----------|--------|--------|
+| 🔥 **CRITICAL** | 7.1 Remove Insecure JWT Defaults | HIGH | Low | HIGH |
+| 🔥 **HIGH** | 7.3 Add Input Validation Layer | MEDIUM | Medium | HIGH |
+| 🔥 **HIGH** | 7.4 Consistent Error Handling | LOW | Medium | MEDIUM |
+| ⚠️ **MEDIUM** | 7.2 Refactor Monolithic main.go | LOW | Medium | MEDIUM |
+| ⚠️ **MEDIUM** | 7.7 Add Global Rate Limiting | MEDIUM | Low | MEDIUM |
+| ⚠️ **MEDIUM** | 7.8 Add Context Propagation | LOW | Medium | MEDIUM |
+| ⚠️ **MEDIUM** | 7.6 Configure SQLite Connection Pool | LOW | Low | LOW |
+| 📝 **LOW** | 7.5 Decouple from libvirt | LOW | High | MEDIUM |
+| 📝 **LOW** | 7.9 API Versioning Strategy | LOW | Low | LOW |
+| 📝 **LOW** | 7.10 Establish Naming Conventions | LOW | Low | LOW |
+
+**Recommended order:**
+
+1. **7.1 Remove Insecure JWT Defaults** — Do this first, it's a security risk
+2. **7.3 Add Input Validation Layer** — Prevents bad data and security issues
+3. **7.6 Configure SQLite Connection Pool** — Quick win, prevents concurrency issues
+4. **7.7 Add Global Rate Limiting** — Protects against DoS
+5. **7.4 Consistent Error Handling** — Improves reliability and debugging
+6. **7.8 Add Context Propagation** — Enables cancellation and timeouts
+7. **7.2 Refactor Monolithic main.go** — Improves maintainability
+8. **7.5 Decouple from libvirt** — Large refactoring, do incrementally
+9. **7.9 API Versioning Strategy** — Documentation, do when needed
+10. **7.10 Establish Naming Conventions** — Documentation, enforce gradually

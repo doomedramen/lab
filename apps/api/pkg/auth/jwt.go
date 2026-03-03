@@ -27,11 +27,13 @@ type Config struct {
 	Issuer          string
 }
 
-// DefaultConfig returns a default config (for development only)
-// In production, always use a properly configured Config with secure secrets
+// DefaultConfig returns a default config with sensible expiry defaults.
+// NOTE: SecretKey must be set explicitly. There is no secure default.
+// In production, always use a cryptographically secure random secret:
+//   openssl rand -base64 32
 func DefaultConfig() Config {
 	return Config{
-		SecretKey:       []byte("change-me-in-production"),
+		SecretKey:       nil, // Must be set explicitly
 		AccessTokenExp:  15 * time.Minute,
 		RefreshTokenExp: 7 * 24 * time.Hour,
 		Issuer:          "lab-api",

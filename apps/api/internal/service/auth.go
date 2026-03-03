@@ -30,10 +30,13 @@ type AuthServiceConfig struct {
 	Issuer          string
 }
 
-// DefaultAuthServiceConfig returns a default config (INSECURE - for development only)
+// DefaultAuthServiceConfig returns a default config with sensible expiry defaults.
+// NOTE: JWTSecret must be set explicitly. There is no secure default.
+// In production, always use a cryptographically secure random secret:
+//   openssl rand -base64 32
 func DefaultAuthServiceConfig() AuthServiceConfig {
 	return AuthServiceConfig{
-		JWTSecret:       []byte("change-me-in-production"),
+		JWTSecret:       nil, // Must be set explicitly
 		AccessTokenExp:  15 * time.Minute,
 		RefreshTokenExp: 7 * 24 * time.Hour,
 		Issuer:          "lab-api",

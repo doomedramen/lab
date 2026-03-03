@@ -72,19 +72,20 @@ logging:
 
 # Authentication configuration
 auth:
-  # JWT secret key (REQUIRED in production - use a secure random string)
+  # JWT secret key (REQUIRED - use a secure random string)
   # Generate with: openssl rand -base64 32
-  jwt_secret: "change-me-in-production"
-  
+  # WARNING: Using a weak or default secret allows attackers to forge authentication tokens!
+  jwt_secret: ""  # REQUIRED: Set this before running the server
+
   # Access token expiry (short-lived for security)
   access_token_expiry: "15m"
-  
+
   # Refresh token expiry (longer for convenience)
   refresh_token_expiry: "168h"  # 7 days
-  
+
   # JWT issuer claim
   issuer: "lab-api"
-  
+
   # MFA settings
   mfa:
     issuer_name: "Lab"  # Name shown in authenticator apps

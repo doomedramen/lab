@@ -329,8 +329,9 @@ func TestGenerateAPIKey_ReturnsBothValues(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
 
-	if string(config.SecretKey) != "change-me-in-production" {
-		t.Error("default secret key mismatch")
+	// SecretKey should be nil - must be set explicitly
+	if config.SecretKey != nil {
+		t.Error("default SecretKey should be nil, must be set explicitly")
 	}
 	if config.AccessTokenExp != 15*time.Minute {
 		t.Errorf("AccessTokenExp: got %v, want 15m", config.AccessTokenExp)

@@ -82,12 +82,14 @@ func main() {
 	// Initialize auth service
 	var authService *service.AuthService
 	if userRepo != nil {
-		// Validate JWT secret
+		// Validate JWT secret - fail fast if not configured
 		if cfg.Auth.JWTSecret == "" {
-			if cfg.Server.Env == "production" {
-				log.Fatalf("JWT_SECRET is required in production")
-			}
-			log.Println("Warning: JWT_SECRET not set, using insecure default")
+			log.Fatalf("JWT_SECRET is required. Generate a secure random secret with: openssl rand -base64 32")
+		}
+
+		// Warn if using a weak/obvious secret (basic check)
+		if len(cfg.Auth.JWTSecret) < 16 {
+			log.Fatalf("JWT_SECRET is too short (minimum 16 characters). Generate a secure random secret with: openssl rand -base64 32")
 		}
 
 		authService = service.NewAuthService(
