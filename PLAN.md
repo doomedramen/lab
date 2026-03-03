@@ -1731,28 +1731,30 @@ Link: </api/v2>; rel="successor-version"
 
 ## Summary — Phase 7 Priority
 
+### Completed Items (6/10)
+
+| # | Item | Status | Security | Effort | Impact | Commit |
+|---|------|--------|----------|--------|--------|--------|
+| 7.1 | Remove Insecure JWT Defaults | ✅ | **HIGH** | Low | **HIGH** | `4cb27e2` |
+| 7.6 | Configure SQLite Connection Pool | ✅ | LOW | Low | LOW | `f16fc87` |
+| 7.7 | Add Global Rate Limiting | ✅ | MEDIUM | Low | MEDIUM | `6a3c10e` |
+| 7.8 | Add Context Propagation | ✅ | LOW | Medium | MEDIUM | `999ce8a` |
+| 7.9 | API Versioning Strategy | ✅ | LOW | Low | LOW | `04841e3` |
+| 7.10 | Establish Naming Conventions | ✅ | LOW | Low | LOW | `e9e1b55` |
+
+### Remaining Items (4/10)
+
 | Priority | Item | Security | Effort | Impact |
 |----------|------|----------|--------|--------|
-| 🔥 **CRITICAL** | 7.1 Remove Insecure JWT Defaults | HIGH | Low | HIGH |
-| 🔥 **HIGH** | 7.3 Add Input Validation Layer | MEDIUM | Medium | HIGH |
-| 🔥 **HIGH** | 7.4 Consistent Error Handling | LOW | Medium | MEDIUM |
+| 🔥 **HIGH** | 7.3 Add Input Validation Layer | MEDIUM | Medium | **HIGH** |
+| 🔥 **HIGH** | 7.4 Consistent Error Handling Policy | LOW | Medium | MEDIUM |
 | ⚠️ **MEDIUM** | 7.2 Refactor Monolithic main.go | LOW | Medium | MEDIUM |
-| ⚠️ **MEDIUM** | 7.7 Add Global Rate Limiting | MEDIUM | Low | MEDIUM |
-| ⚠️ **MEDIUM** | 7.8 Add Context Propagation | LOW | Medium | MEDIUM |
-| ⚠️ **MEDIUM** | 7.6 Configure SQLite Connection Pool | LOW | Low | LOW |
 | 📝 **LOW** | 7.5 Decouple from libvirt | LOW | High | MEDIUM |
-| 📝 **LOW** | 7.9 API Versioning Strategy | LOW | Low | LOW |
-| 📝 **LOW** | 7.10 Establish Naming Conventions | LOW | Low | LOW |
 
-**Recommended order:**
+**Recommended next steps:**
 
-1. **7.1 Remove Insecure JWT Defaults** — Do this first, it's a security risk
-2. **7.3 Add Input Validation Layer** — Prevents bad data and security issues
-3. **7.6 Configure SQLite Connection Pool** — Quick win, prevents concurrency issues
-4. **7.7 Add Global Rate Limiting** — Protects against DoS
-5. **7.4 Consistent Error Handling** — Improves reliability and debugging
-6. **7.8 Add Context Propagation** — Enables cancellation and timeouts
-7. **7.2 Refactor Monolithic main.go** — Improves maintainability
-8. **7.5 Decouple from libvirt** — Large refactoring, do incrementally
-9. **7.9 API Versioning Strategy** — Documentation, do when needed
-10. **7.10 Establish Naming Conventions** — Documentation, enforce gradually
+1. **7.3 Add Input Validation Layer** — Prevents bad data and security issues (highest impact)
+2. **7.4 Consistent Error Handling Policy** — Improves reliability and debugging
+3. **7.2 Refactor Monolithic main.go** — Improves maintainability
+4. **7.5 Decouple from libvirt** — Large refactoring, do incrementally
+
