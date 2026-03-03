@@ -378,7 +378,7 @@ export function CreateVMModal({ nodes, trigger }: CreateVMModalProps) {
                         <Server className="size-4 text-muted-foreground" />
                         <span>{n.name}</span>
                         <span className="text-xs text-muted-foreground">
-                          ({n.arch || "x86_64"}, {n.cpu?.cores ?? 0} cores, {n.memory?.total ?? 0}GB RAM)
+                          ({n.arch || "x86_64"}, {n.cpu?.cores ?? 0} cores, {(n.memory?.total ?? 0).toFixed(2)} GB RAM)
                         </span>
                       </div>
                     </SelectItem>
@@ -799,7 +799,7 @@ export function CreateVMModal({ nodes, trigger }: CreateVMModalProps) {
               {memoryError && <p className="text-xs text-destructive">{memoryError}</p>}
               {selectedNode && (
                 <p className="text-xs text-muted-foreground">
-                  Available: {selectedNode.memory?.total ?? 0} GB on {selectedNode.name}
+                  Available: {(selectedNode.memory?.total ?? 0).toFixed(2)} GB on {selectedNode.name}
                 </p>
               )}
             </div>
