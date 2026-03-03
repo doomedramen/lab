@@ -1303,104 +1303,124 @@ func (h *vmHandler) CreateVM(ctx context.Context, req *connect.Request[labv1.Cre
 
 ### 7.4 Consistent Error Handling Policy
 
-**Status:** ⏳ **PENDING**
+**Status:** ✅ **COMPLETED**
 
-**Why.** The codebase has inconsistent error handling:
-- Some places use `log.Fatalf` (exits process)
-- Others return errors gracefully
-- Some swallow errors with `Warning:` logs
+**Why.** The codebase had inconsistent error handling:
+- Mix of `log.Fatalf` (exits process) and graceful error returns
+- No standard error types for API responses
+- Error context lost when wrapping
+- Inconsistent logging levels
 
-**Current inconsistencies:**
+**Deliverable.** Comprehensive error handling framework with typed errors, wrapping, and documentation.
 
-```go
-// Exits process
-log.Fatalf("Failed to connect to libvirt: %v", err)
-
-// Degrades gracefully
-log.Printf("Warning: Failed to initialize SQLite: %v", err)
-
-// Returns error
-if err != nil {
-    return nil, err
-}
-```
-
-**Deliverable.** Documented error handling policy with consistent patterns.
-
-**Files to create/modify:**
+**Files created:**
 
 | File | Change |
 |------|--------|
-| `apps/api/internal/errors/errors.go` | New — Define error types and handling policy |
-| `apps/api/cmd/server/main.go` | Apply error policy consistently |
-| `apps/api/internal/service/*.go` | Replace `log.Fatalf` with error returns where appropriate |
-| `apps/api/ERROR_HANDLING.md` | New — Document error handling guidelines |
+| `apps/api/internal/errors/errors.go` | New — Error types, codes, helpers (400+ lines) |
+| `apps/api/ERROR_HANDLING.md` | New — Error handling policy documentation |
+| `apps/api/internal/errors/errors_test.go` | New — Comprehensive test suite (40+ tests) |
 
-**Proposed error handling policy:**
+**Error Types:**
 
-| Scenario | Action | Rationale |
-|----------|--------|-----------|
-| Configuration errors (missing required config) | `log.Fatalf` | Cannot start without config |
-| Database connection failure | `log.Fatalf` | Core dependency |
-| Optional service unavailable (e.g., LXC) | Log warning, disable feature | Graceful degradation |
-| User input errors | Return `INVALID_ARGUMENT` error | User-fixable |
-| Resource not found | Return `NOT_FOUND` error | Expected condition |
-| Libvirt operation failure | Return error with context | Retryable |
-| Internal server errors | Log + return `INTERNAL` error | Bug |
+### Error Codes
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INVALID_ARGUMENT` | 400 | Client specified invalid argument |
+| `NOT_FOUND` | 404 | Resource not found |
+| `ALREADY_EXISTS` | 409 | Resource already exists |
+| `PERMISSION_DENIED` | 403 | Insufficient permissions |
+| `UNAUTHENTICATED` | 401 | Authentication required |
+| `INTERNAL` | 500 | Internal server error |
+| `UNAVAILABLE` | 503 | Service unavailable |
+| `CONFLICT` | 409 | Request conflicts with current state |
+| `RESOURCE_EXHAUSTED` | 429 | Resource quota exceeded |
 
-**Custom error types:**
-
+### APIError Structure
 ```go
-package errors
-
-type ErrorType int
-
-const (
-    Unknown ErrorType = iota
-    InvalidArgument
-    NotFound
-    AlreadyExists
-    PermissionDenied
-    Unauthenticated
-    Internal
-    Unavailable
-)
-
 type APIError struct {
-    Type    ErrorType
-    Message string
-    Cause   error
-}
-
-func (e *APIError) Error() string {
-    if e.Cause != nil {
-        return fmt.Sprintf("%s: %v", e.Message, e.Cause)
-    }
-    return e.Message
-}
-
-// Helper functions
-func NewInvalidArgument(format string, args ...interface{}) *APIError {
-    return &APIError{Type: InvalidArgument, Message: fmt.Sprintf(format, args...)}
-}
-
-func NewNotFound(format string, args ...interface{}) *APIError {
-    return &APIError{Type: NotFound, Message: fmt.Sprintf(format, args...)}
-}
-
-func WrapInternal(err error, message string) *APIError {
-    return &APIError{Type: Internal, Message: message, Cause: err}
+    Code       ErrorCode         // Application error code
+    Message    string            // Human-readable message
+    Details    map[string]string // Additional metadata
+    Cause      error             // Underlying cause (for wrapping)
+    StackTrace string            // Stack trace for debugging
+    Operation  string            // Operation being performed
+    Resource   string            // Resource type (e.g., "vm", "user")
+    ResourceID string            // Resource identifier
 }
 ```
 
-**Complexity:** Medium. Requires auditing all error handling and updating
-many files, but pattern is straightforward.
+**Error Creation Functions:**
+- `New(code, message)` — Create basic error
+- `Wrap(err, code, message)` — Wrap with context
+- `Wrapf(err, code, format, args...)` — Wrap with formatted message
+- `NewNotFoundError(resourceType, resourceID)` — Resource not found
+- `NewInvalidArgumentError(field, message)` — Invalid input
+- `NewAlreadyExistsError(resourceType, resourceID)` — Resource exists
+- `NewPermissionDeniedError(message)` — Access denied
+- `NewUnauthenticatedError(message)` — Not authenticated
+- `NewInternalError(cause, message)` — Internal error
+- `NewUnavailableError(message)` — Service unavailable
+- `NewConflictError(message)` — Conflict with current state
 
-**Testing:**
+**Error Checking Functions:**
+- `IsNotFound(err)` — Check if not found error
+- `IsInvalidArgument(err)` — Check if invalid argument
+- `IsAlreadyExists(err)` — Check if already exists
+- `IsPermissionDenied(err)` — Check if permission denied
+- `IsUnauthenticated(err)` — Check if unauthenticated
+- `IsInternal(err)` — Check if internal error
+- `GetErrorCode(err)` — Get error code
+- `GetHTTPStatus(err)` — Get HTTP status code
 
-- Add tests for error type conversion
-- Verify error messages are user-friendly
-- Test graceful degradation paths
+**Usage Pattern:**
+
+```go
+// Repository layer
+func (r *VMRepository) GetByID(ctx context.Context, id string) (*model.VM, error) {
+    row := r.db.QueryRowContext(ctx, "SELECT * FROM vms WHERE id = ?", id)
+    vm, err := scanVM(row)
+    if err == sql.ErrNoRows {
+        return nil, errors.NewNotFoundError("vm", id)
+    }
+    if err != nil {
+        return nil, errors.NewInternalError(err, "failed to query VM")
+    }
+    return vm, nil
+}
+
+// Service layer
+func (s *VMService) CreateVM(ctx context.Context, req *CreateVMRequest) (*VM, error) {
+    // Validate
+    if req.Name == "" {
+        return nil, errors.NewInvalidArgumentError("name", "is required")
+    }
+    
+    // Check for duplicates
+    _, err := s.repo.GetByName(ctx, req.Name)
+    if err == nil {
+        return nil, errors.NewAlreadyExistsError("vm", req.Name)
+    }
+    
+    // Create
+    vm, err := s.repo.Create(ctx, req)
+    if err != nil {
+        return nil, errors.NewInternalError(err, "failed to create VM")
+    }
+    return vm, nil
+}
+
+// Handler layer
+func (h *vmHandler) CreateVM(ctx context.Context, req *connect.Request[labv1.CreateVMRequest]) (*connect.Response[labv1.CreateVMResponse], error) {
+    vm, err := h.vmSvc.CreateVM(ctx, req.Msg)
+    if err != nil {
+        return nil, connectErrorFromAPIError(err) // Convert to Connect error
+    }
+    return connect.NewResponse(modelToProto(vm)), nil
+}
+```
+
+**Complexity:** Medium-High. Created comprehensive error handling framework with proper error chaining, stack traces, and documentation.
 
 ---
 
@@ -1731,29 +1751,28 @@ Link: </api/v2>; rel="successor-version"
 
 ## Summary — Phase 7 Priority
 
-### Completed Items (7/10)
+### Completed Items (8/10)
 
 | # | Item | Status | Security | Effort | Impact | Commit |
 |---|------|--------|----------|--------|--------|--------|
 | 7.1 | Remove Insecure JWT Defaults | ✅ | **HIGH** | Low | **HIGH** | `4cb27e2` |
-| 7.3 | Add Input Validation Layer | ✅ | MEDIUM | Medium-High | **HIGH** | _pending_ |
+| 7.3 | Add Input Validation Layer | ✅ | MEDIUM | Medium-High | **HIGH** | `457eb5e` |
+| 7.4 | Consistent Error Handling Policy | ✅ | LOW | Medium-High | MEDIUM | _pending_ |
 | 7.6 | Configure SQLite Connection Pool | ✅ | LOW | Low | LOW | `f16fc87` |
 | 7.7 | Add Global Rate Limiting | ✅ | MEDIUM | Low | MEDIUM | `6a3c10e` |
 | 7.8 | Add Context Propagation | ✅ | LOW | Medium | MEDIUM | `999ce8a` |
 | 7.9 | API Versioning Strategy | ✅ | LOW | Low | LOW | `04841e3` |
 | 7.10 | Establish Naming Conventions | ✅ | LOW | Low | LOW | `e9e1b55` |
 
-### Remaining Items (3/10)
+### Remaining Items (2/10)
 
 | Priority | Item | Security | Effort | Impact |
 |----------|------|----------|--------|--------|
-| 🔥 **HIGH** | 7.4 Consistent Error Handling Policy | LOW | Medium | MEDIUM |
 | ⚠️ **MEDIUM** | 7.2 Refactor Monolithic main.go | LOW | Medium | MEDIUM |
 | 📝 **LOW** | 7.5 Decouple from libvirt | LOW | High | MEDIUM |
 
 **Recommended next steps:**
 
-1. **7.4 Consistent Error Handling Policy** — Improves reliability and debugging
-2. **7.2 Refactor Monolithic main.go** — Improves maintainability
-3. **7.5 Decouple from libvirt** — Large refactoring, do incrementally
+1. **7.2 Refactor Monolithic main.go** — Improves maintainability (last substantive item)
+2. **7.5 Decouple from libvirt** — Large refactoring, do incrementally as part of feature work
 
