@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Server, Monitor, Box } from "lucide-react"
-import { StatusBadge } from "@workspace/components/lab-shared"
+import { StatusBadge } from "@/components/lab-shared"
 import { cn } from "@/lib/utils"
 
 export interface NodeListItemProps {

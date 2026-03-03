@@ -11,20 +11,20 @@ import { useProxyHosts, useProxyStatus, useMonitors, useMonitorStats, useMonitor
 import { useProxyMutations, useMonitorMutations } from "@/lib/api/mutations/proxy"
 import { ProxySSLMode } from "@/lib/gen/lab/v1/proxy_pb"
 import type { UptimeMonitor } from "@/lib/gen/lab/v1/proxy_pb"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import { Switch } from "@workspace/ui/components/switch"
-import { Badge } from "@workspace/ui/components/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/select"
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -32,7 +32,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/table"
+} from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -40,8 +40,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { MetricAreaChart } from "@workspace/components/metric-area-chart"
+} from "@/components/ui/dialog"
+import { MetricAreaChart } from "@/components/metric-area-chart"
 
 // ---- helpers ----
 

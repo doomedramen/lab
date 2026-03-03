@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Terminal } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
 import { AttachAddon } from "@xterm/addon-attach"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw, Terminal as TerminalIcon } from "lucide-react"
 import { useHostShellToken } from "@/lib/api/queries"
 

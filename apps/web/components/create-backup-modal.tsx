@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Loader2, Plus, HardDrive, Database } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -11,13 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@workspace/ui/components/dialog"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui/components/select"
-import { Textarea } from "@workspace/ui/components/textarea"
-import { Switch } from "@workspace/ui/components/switch"
-import { Card, CardContent } from "@workspace/ui/components/card"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { Card, CardContent } from "@/components/ui/card"
 import { useBackupMutations } from "@/lib/api/mutations/backups"
 import type { BackupType } from "@/lib/gen/lab/v1/backup_pb"
 

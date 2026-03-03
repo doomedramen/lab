@@ -2,15 +2,15 @@
 
 import { useState, Suspense } from "react"
 import { useAlerts, useAlertRules, useNotificationChannels, useAlertMutations, AlertRuleType, NotificationChannelType, AlertSeverity, AlertStatus } from "@/lib/api/queries/alerts"
-import { TabsPersistent, TabsList, TabsTrigger, TabsContent } from "@workspace/components/tabs-persistent"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import { Switch } from "@workspace/ui/components/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui/components/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { TabsPersistent, TabsList, TabsTrigger, TabsContent } from "@/components/tabs-persistent"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { Shimmer } from "@workspace/components/shimmer"
+} from "@/components/ui/dialog"
+import { Shimmer } from "@/components/shimmer"
 import { RefreshCw, Bell, BellOff, Plus, Trash2, Edit, Check, X, AlertTriangle, Info, AlertCircle, Mail, Webhook, Settings } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 

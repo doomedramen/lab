@@ -1,21 +1,21 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect } from "react"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/select"
-import { Checkbox } from "@workspace/ui/components/checkbox"
+} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import type { VMLogEntry } from "@/lib/gen/lab/v1/vm_pb"
 import { VMLogLevel } from "@/lib/gen/lab/v1/vm_pb"
 import { Clock, Filter, ChevronDown, ChevronRight, ArrowDown, RefreshCw } from "lucide-react"
-import { cn } from "@workspace/ui/lib/utils"
+import { cn } from "@/components/ui/utils"
 
 interface LogViewerProps {
   entries: VMLogEntry[]

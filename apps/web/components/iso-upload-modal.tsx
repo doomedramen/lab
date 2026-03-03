@@ -10,9 +10,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { Progress } from "@workspace/ui/components/progress"
-import { Button } from "@workspace/ui/components/button"
+} from "@/components/ui/dialog"
+import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
 import { Upload, CheckCircle, AlertCircle } from "lucide-react"
 
 interface ISOUploadModalProps {

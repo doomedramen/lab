@@ -2,15 +2,15 @@
 
 import { useState } from "react"
 import { Clock, MoreVertical, RotateCcw, Trash2, HardDrive, ChevronRight, ChevronDown } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@workspace/ui/components/dropdown-menu"
-import { Badge } from "@workspace/ui/components/badge"
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { CreateSnapshotModal } from "./create-snapshot-modal"
 import { RestoreSnapshotModal } from "./restore-snapshot-modal"

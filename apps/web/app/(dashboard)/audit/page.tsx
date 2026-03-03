@@ -11,10 +11,10 @@ import {
   X,
 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Badge } from "@workspace/ui/components/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { useAuditLogs } from "@/lib/api/queries"
 
 const PAGE_SIZE = 50

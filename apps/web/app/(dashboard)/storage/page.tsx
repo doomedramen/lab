@@ -4,7 +4,7 @@ import { HardDrive } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { StoragePoolList } from "@/components/storage-pool-list"
 import { useStoragePools } from "@/lib/api/queries"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function StoragePage() {
   const { data, isLoading } = useStoragePools()

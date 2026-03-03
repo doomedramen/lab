@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw } from "lucide-react"
 
 interface ErrorDisplayProps {

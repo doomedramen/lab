@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { VncScreen } from "react-vnc"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw, Info } from "lucide-react"
 
 interface VNCConsoleProps {

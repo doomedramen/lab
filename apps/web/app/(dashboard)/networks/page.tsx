@@ -4,7 +4,7 @@ import { Network } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { NetworkList } from "@/components/network-list"
 import { useNetworks } from "@/lib/api/queries"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function NetworksPage() {
   const { data, isLoading } = useNetworks()

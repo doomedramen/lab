@@ -9,39 +9,39 @@ import {
   StatusBadge,
   ResourceBar,
   TagList,
-} from "@workspace/components/lab-shared";
+} from "@/components/lab-shared";
 import {
   TabsPersistent,
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@workspace/components/tabs-persistent";
-import { ResourceMetricCard } from "@workspace/components/resource-metric-card";
-import { ConfigList } from "@workspace/components/config-list";
-import { ResourceConfigItem } from "@workspace/components/resource-config-item";
+} from "@/components/tabs-persistent";
+import { ResourceMetricCard } from "@/components/resource-metric-card";
+import { ConfigList } from "@/components/config-list";
+import { ResourceConfigItem } from "@/components/resource-config-item";
 import { PageHeader } from "@/components/page-header";
-import { PerformanceChart } from "@workspace/components/performance-chart";
-import { EntityActionButtons } from "@workspace/components/entity-action-buttons";
-import { Shimmer } from "@workspace/components/shimmer";
+import { PerformanceChart } from "@/components/performance-chart";
+import { EntityActionButtons } from "@/components/entity-action-buttons";
+import { Shimmer } from "@/components/shimmer";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from "@workspace/ui/components/card";
-import { Badge } from "@workspace/ui/components/badge";
-import { Button } from "@workspace/ui/components/button";
-import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-import { Switch } from "@workspace/ui/components/switch";
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/select";
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +49,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog";
+} from "@/components/ui/dialog";
 import {
   useVM,
   useVMLogs,
@@ -215,7 +215,7 @@ function VMDetailContent({
     onResume: () => void;
     onReboot: () => void;
     onConsole: (
-      type: import("@workspace/components/entity-action-buttons").ConsoleType,
+      type: import("@/components/entity-action-buttons").ConsoleType,
     ) => void;
     onClone: () => void;
     onDelete: () => void;
@@ -782,7 +782,7 @@ export default function VMDetailPage({
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleWsUrl, setConsoleWsUrl] = useState<string | null>(null);
   const [consoleType, setConsoleType] =
-    useState<import("@workspace/components/entity-action-buttons").ConsoleType>(
+    useState<import("@/components/entity-action-buttons").ConsoleType>(
       "serial",
     );
 
@@ -877,7 +877,7 @@ export default function VMDetailPage({
   };
 
   const handleConsole = (
-    type: import("@workspace/components/entity-action-buttons").ConsoleType,
+    type: import("@/components/entity-action-buttons").ConsoleType,
   ) => {
     if (!vm) return;
     // Set the console type and open dialog

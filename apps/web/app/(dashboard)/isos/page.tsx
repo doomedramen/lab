@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { StatusBadge } from "@workspace/components/lab-shared"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { StatusBadge } from "@/components/lab-shared"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -10,14 +10,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/table"
-import { Button } from "@workspace/ui/components/button"
+} from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -25,8 +25,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+} from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Disc,
   Upload,
@@ -45,9 +45,9 @@ import { useISOMutations } from "@/lib/api/mutations"
 import { useISODownload, useISODownloadProgress, useAllISODownloadProgress } from "@/lib/api/mutations/isos"
 import { ISOUploadModal } from "@/components/iso-upload-modal"
 import { ISODownloadModal } from "@/components/iso-download-modal"
-import { Shimmer } from "@workspace/components/shimmer"
+import { Shimmer } from "@/components/shimmer"
 import { ErrorDisplay } from "@/components/error-display"
-import { Progress } from "@workspace/ui/components/progress"
+import { Progress } from "@/components/ui/progress"
 import type { ISOImage } from "@/lib/gen/lab/v1/iso_pb"
 import type { StoragePool } from "@/lib/gen/lab/v1/storage_pb"
 

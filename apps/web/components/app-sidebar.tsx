@@ -26,7 +26,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useNodes, useVMs, useContainers } from "@/lib/api/queries"
 import { nodeStatusToString, vmStatusToString, containerStatusToString } from "@/lib/api/enum-helpers"
-import { ScrollArea, ScrollBar } from "@workspace/ui/components/scroll-area"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { useState, useCallback } from "react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/lib/auth"

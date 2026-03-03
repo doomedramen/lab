@@ -2,16 +2,16 @@
 
 import { useState } from "react"
 import { MoreVertical, Trash2, RefreshCw, Network, Plus, Activity, Shield } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@workspace/ui/components/dropdown-menu"
-import { Badge } from "@workspace/ui/components/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CreateNetworkModal } from "./create-network-modal"
 import { useNetworkMutations } from "@/lib/api/mutations/network"
 import type { VirtualNetwork } from "@/lib/gen/lab/v1/network_pb"

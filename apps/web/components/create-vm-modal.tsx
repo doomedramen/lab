@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Loader2, Cpu, MemoryStick, HardDrive, Disc, Server, Tag, FileText, Settings2, Globe, Upload, AlertCircle } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -12,15 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@workspace/ui/components/dialog"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui/components/select"
-import { Switch } from "@workspace/ui/components/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-import { Badge } from "@workspace/ui/components/badge"
-import { Card, CardContent } from "@workspace/ui/components/card"
-import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useVMMutations } from "@/lib/api/mutations"
 import { useISOs, usePCIDevices } from "@/lib/api/queries"
 import { useVMTemplates } from "@/lib/api/queries/templates"

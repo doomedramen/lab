@@ -4,13 +4,13 @@ import { use, useState } from "react"
 import dynamic from "next/dynamic"
 import { notFound, useRouter } from "next/navigation"
 import Link from "next/link"
-import { StatusBadge } from "@workspace/components/lab-shared"
-import { Shimmer } from "@workspace/components/shimmer"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import { StatusBadge } from "@/components/lab-shared"
+import { Shimmer } from "@/components/shimmer"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
+} from "@/components/ui/alert-dialog"
 import { useStack } from "@/lib/api/queries"
 import { useStackMutations } from "@/lib/api/mutations"
 import { ErrorDisplay } from "@/components/error-display"

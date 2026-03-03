@@ -2,17 +2,17 @@
 
 import { useState } from "react"
 import { MoreVertical, Trash2, RefreshCw, HardDrive, Folder, Database, Server } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@workspace/ui/components/dropdown-menu"
-import { Badge } from "@workspace/ui/components/badge"
-import { Progress } from "@workspace/ui/components/progress"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CreateStoragePoolModal } from "./create-storage-pool-modal"
 import { useStoragePoolMutations } from "@/lib/api/mutations/storage"
 import type { StoragePool } from "@/lib/gen/lab/v1/storage_pb"

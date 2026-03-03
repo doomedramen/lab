@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Loader2, RotateCcw, AlertTriangle } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -10,10 +10,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { Label } from "@workspace/ui/components/label"
-import { Switch } from "@workspace/ui/components/switch"
-import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useSnapshotMutations } from "@/lib/api/mutations/snapshots"
 import type { Snapshot } from "@/lib/gen/lab/v1/snapshot_pb"
 

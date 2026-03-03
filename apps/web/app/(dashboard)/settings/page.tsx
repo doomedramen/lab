@@ -17,12 +17,12 @@ import {
   LogOut,
 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import { Badge } from "@workspace/ui/components/badge"
-import { Separator } from "@workspace/ui/components/separator"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@workspace/ui/components/alert-dialog"
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
@@ -41,8 +41,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { TabsPersistent, TabsList, TabsTrigger, TabsContent } from "@workspace/components/tabs-persistent"
+} from "@/components/ui/dialog"
+import { TabsPersistent, TabsList, TabsTrigger, TabsContent } from "@/components/tabs-persistent"
 import { useCurrentUser, useAPIKeys, useSessions } from "@/lib/api/queries"
 import { useUpdateProfile, useSetupMFA, useEnableMFA, useDisableMFA, useCreateAPIKey, useRevokeAPIKey, useRevokeSession, useRevokeOtherSessions } from "@/lib/api/mutations"
 import type { APIKey, Session } from "@/lib/gen/lab/v1/auth_pb"

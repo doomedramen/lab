@@ -5,9 +5,9 @@ import { PageHeader } from "@/components/page-header"
 import { FirewallRulesList } from "@/components/firewall-rules-list"
 import { useFirewallRules, useFirewallStatus } from "@/lib/api/queries"
 import { useFirewallMutations } from "@/lib/api/mutations/network"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Badge } from "@workspace/ui/components/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export default function FirewallPage() {
   const { data: rulesData, isLoading } = useFirewallRules()

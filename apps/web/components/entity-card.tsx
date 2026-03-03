@@ -1,6 +1,6 @@
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { StatusBadge, TagList } from "@workspace/components/lab-shared"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { StatusBadge, TagList } from "@/components/lab-shared"
 import { Cpu, MemoryStick, HardDrive } from "lucide-react"
 import { cn } from "@/lib/utils"
 
