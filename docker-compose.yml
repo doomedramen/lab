@@ -1,0 +1,35 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: lab-api
+    privileged: true
+    network_mode: host
+    environment:
+      - LIBVIRT_URI=${LIBVIRT_URI:-qemu:///system}
+      - JWT_SECRET=${JWT_SECRET:-debug_secret_do_not_use_in_prod}
+      - ENV=development
+      - STACKS_DIR=/var/lib/lab/stacks
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - lab-data:/var/lib/lab
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8080
+    container_name: lab-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  lab-data:

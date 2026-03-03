@@ -46,6 +46,11 @@ const navItems = [
   { label: "Settings", href: "/settings", icon: Settings },
 ]
 
+const templateNodes = [
+  { id: "1", name: "loading-1" },
+  { id: "2", name: "loading-2" },
+]
+
 function StatusDot({ status }: { status: string }) {
   const color =
     status === "online" || status === "running"
