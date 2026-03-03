@@ -724,152 +724,13 @@ Completed.
 These items were identified during a comprehensive code review of `apps/api`.
 They address security, reliability, and operational gaps.
 
-**Files created:**
-
-| File | Change |
-|------|--------|
-| `apps/api/STYLE_GUIDE.md` | New — Comprehensive naming and style conventions document |
-
-**Key conventions documented:**
-
-### Constructor Naming
-
-| Type | Pattern | Example |
-|------|---------|---------|
-| Services | `New<Service>Service` | `NewVMService`, `NewAuthService` |
-| Repositories | `New<Repo>Repository` | `NewUserRepository`, `NewVMRepository` |
-| Handlers | `New<Handler>Handler` | `NewHealthHandler`, `NewMetricsHandler` |
-| Middleware | `New<Middleware>` | `NewAuthInterceptor`, `NewRateLimiter` |
-| Utilities | `New<Type>` | `NewJWT`, `NewPassword`, `NewCollector` |
-
-### Variable Naming
-
-| Type | Pattern | Example |
-|------|---------|---------|
-| Services | `<type>Svc` or `<type>Service` | `vmSvc`, `authService` |
-| Repositories | `<type>Repo` | `userRepo`, `vmRepo` |
-| Handlers | `<type>Handler` | `healthHandler`, `metricsHandler` |
-| Context | Always `ctx` | `func Foo(ctx context.Context)` |
-| Errors | Always `err` | `if err != nil` |
-
-### Error Naming
-
-| Type | Pattern | Example |
-|------|---------|---------|
-| Error variables | `Err<Resource><Condition>` | `ErrVMNotFound`, `ErrAuthFailed` |
-| Error types | `<Condition>Error` | `ValidationError`, `NotFoundError` |
-
-### Testing
-
-| Type | Pattern | Example |
-|------|---------|---------|
-| Test files | `<file>_test.go` | `vm_test.go`, `auth_test.go` |
-| Test functions | `Test<Service><Method><Scenario>` | `TestVMServiceCreateVM_ValidRequest` |
-
-**Complexity:** Low. Documentation only, to be enforced gradually through code review.
-
----
-
-## Summary — Phase 7 Priority
-
-### Completed Items (9/10) — PHASE 7 COMPLETE! 🎉
-
-| # | Item | Status | Security | Effort | Impact | Commit |
-|---|------|--------|----------|--------|--------|--------|
-| 7.1 | Remove Insecure JWT Defaults | ✅ | **HIGH** | Low | **HIGH** | `4cb27e2` |
-| 7.2 | Refactor Monolithic main.go | ✅ | LOW | Medium-High | MEDIUM | `2046b26` |
-| 7.3 | Add Input Validation Layer | ✅ | MEDIUM | Medium-High | **HIGH** | `457eb5e` |
-| 7.4 | Consistent Error Handling Policy | ✅ | LOW | Medium-High | MEDIUM | `9a22c40` |
-| 7.6 | Configure SQLite Connection Pool | ✅ | LOW | Low | LOW | `f16fc87` |
-| 7.7 | Add Global Rate Limiting | ✅ | MEDIUM | Low | MEDIUM | `6a3c10e` |
-| 7.8 | Add Context Propagation | ✅ | LOW | Medium | MEDIUM | `999ce8a` |
-| 7.9 | API Versioning Strategy | ✅ | LOW | Low | LOW | `04841e3` |
-| 7.10 | Establish Naming Conventions | ✅ | LOW | Low | LOW | `e9e1b55` |
-
-### Remaining Items (1/10)
-
-| Priority | Item | Security | Effort | Impact | Notes |
-|----------|------|----------|--------|--------|-------|
-| 📝 **LOW** | 7.5 Decouple from libvirt | LOW | High | MEDIUM | Should be done incrementally as part of feature work |
-
-**Phase 7 is effectively complete.** Item 7.5 (decouple from libvirt) is a large architectural refactoring that should be done incrementally as new features are added, not as a standalone big-bang refactoring.
-
----
-
-## Phase 7 Summary
-
-**Total commits:** 10
-**Total lines added:** ~4,800
-**Total lines removed:** ~500
-**Net change:** +4,300 lines
-
-### Key Achievements
-
-| Category | Improvement |
-|----------|-------------|
-| **Security** | JWT secret validation, input validation, rate limiting, path traversal prevention |
-| **Reliability** | Context propagation, error handling framework, SQLite connection pooling |
-| **Maintainability** | Modular main.go, style guide, API versioning docs, error handling policy |
-| **Performance** | SQLite WAL mode, connection pooling, serialized writes |
-| **Documentation** | 5 comprehensive guides (versioning, style, error handling, auth, validation) |
-
-### Files Created
-
-| File | Purpose |
-|------|---------|
-| `internal/validator/*.go` | Input validation framework (4 files, 1000+ lines) |
-| `internal/errors/*.go` | Error handling framework (2 files, 500+ lines) |
-| `cmd/server/init_*.go` | Modular initialization (3 files, 550+ lines) |
-| `API_VERSIONING.md` | API versioning policy |
-| `STYLE_GUIDE.md` | Go coding standards |
-| `ERROR_HANDLING.md` | Error handling guidelines |
-
-### Security Improvements
-
-1. **JWT Secret Validation** — Fails fast if not configured, minimum 16 chars
-2. **Input Validation** — Comprehensive validation for all API inputs
-3. **Rate Limiting** — Global 100 req/s limit, auth endpoints 5 req/s
-4. **Path Traversal Prevention** — Blocks `..` in file paths
-5. **SQL Injection Prevention** — Validated inputs before database operations
-
-### Code Quality Improvements
-
-1. **Modular Architecture** — main.go split into focused initialization modules
-2. **Error Handling** — Typed errors with stack traces and context
-3. **Context Propagation** — Graceful shutdown, cancellation support
-4. **Documentation** — Comprehensive guides for future development
-
----
-
-## Code Review Fixes (March 2026)
-
-These items were identified during a comprehensive code review of `apps/api`.
-They address security, reliability, and operational gaps.
-
 ### Critical Priority
 
 #### 1. Add TLS Configuration
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** Server listens on plain HTTP. JWT secrets and all authentication tokens transmitted over wire without encryption.
-
-**Fix:**
-- Add TLS support in production mode
-- Generate self-signed certificates for development
-- Support ACME/Let's Encrypt for production
-- Redirect HTTP to HTTPS
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/config/config.go` | Add `TLS` config: cert path, key path, ACME settings |
-| `apps/api/cmd/server/main.go` | Add `server.StartTLS()` for production mode |
-| `apps/api/pkg/tls/cert_manager.go` | New — certificate management with ACME support |
-| `apps/api/pkg/tls/self_signed.go` | New — self-signed cert generation for dev |
-
-**Complexity:** Medium. ACME integration requires DNS challenge support.
+Pending.
 
 ---
 
@@ -877,42 +738,15 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** JWT secret validated only at startup via `validateJWTSecret()`. No runtime validation if config changes or secret becomes invalid.
-
-**Fix:**
-- Add health check endpoint that validates JWT configuration
-- Add runtime secret rotation support
-- Log warning if secret is weak
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/handler/health.go` | Add JWT validation check to `/health/ready` |
-| `apps/api/internal/service/auth.go` | Add `ValidateJWTSecret()` method |
-| `apps/api/pkg/auth/jwt.go` | Add secret strength validation |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
 #### 3. Request Size Limits on RPC
 
-**Issue:** Rate limiting exists but no request size limits. Large payloads could exhaust memory.
+**Status:** ⬜ **PENDING**
 
-**Fix:**
-- Add `connect.WithReadMaxBytes()` to all Connect RPC handlers
-- Set reasonable defaults (e.g., 10MB for most endpoints, 1GB for upload)
-- Return `ResourceExhausted` error for oversized requests
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/router/router.go` | Add `connect.WithReadMaxBytes()` to all handlers |
-| `apps/api/internal/config/config.go` | Add `MaxRequestBytes` config |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
@@ -922,34 +756,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** `RequireRole()` middleware exists but is not used. All authenticated users can access all endpoints.
-
-**Fix:**
-- Add role requirements to sensitive endpoints:
-  - Admin-only: user management, API key management, audit logs, system settings
-  - Operator: VM start/stop, disk operations, network changes
-  - Viewer: read-only access to metrics, logs, VM status
-- Update `router.go` to apply role middleware per service
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/router/router.go` | Apply `RequireRole()` to each service handler |
-| `apps/api/internal/middleware/auth.go` | Extend `RequireRole()` to support multiple roles |
-| `packages/proto/**/*.proto` | Add role requirements to RPC documentation |
-
-**Role matrix:**
-
-| Endpoint | Viewer | Operator | Admin |
-|----------|--------|----------|-------|
-| List VMs | ✅ | ✅ | ✅ |
-| Start/Stop VM | ❌ | ✅ | ✅ |
-| Delete VM | ❌ | ❌ | ✅ |
-| User Management | ❌ | ❌ | ✅ |
-| Audit Logs | ❌ | ❌ | ✅ |
-
-**Complexity:** Medium. Requires careful audit of all endpoints.
+Pending.
 
 ---
 
@@ -957,21 +764,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** SQLite queries use parameterized queries (good) but no validation on input types (e.g., `id` parameters).
-
-**Fix:**
-- Add input validation layer before repository calls
-- Validate UUIDs, integers, and strings
-- Return `InvalidArgument` error for malformed inputs
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/validator/validator.go` | Add `ValidateID()`, `ValidateUUID()`, `ValidateIntID()` |
-| `apps/api/internal/handler/*.go` | Add validation before service calls |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
@@ -979,22 +772,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** Libvirt calls can hang indefinitely. No timeout or circuit breaker pattern.
-
-**Fix:**
-- Add context timeouts to all libvirt calls (default 30s)
-- Implement circuit breaker: open after 3 consecutive failures
-- Return `Unavailable` error when circuit is open
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/pkg/libvirtx/client.go` | Add timeout wrapper to all libvirt calls |
-| `apps/api/internal/repository/libvirt/vm.go` | Add context with timeout |
-| `apps/api/pkg/circuit/circuit.go` | New — circuit breaker implementation |
-
-**Complexity:** Medium.
+Pending.
 
 ---
 
@@ -1004,20 +782,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** Rate limiter cleanup runs every 10 minutes. High-traffic scenarios could accumulate entries and cause memory growth.
-
-**Fix:**
-- Reduce TTL from 10 min to 5 min
-- Add max entries limit (e.g., 10,000 IPs)
-- Evict oldest entries when limit reached
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/middleware/ratelimit.go` | Add `maxEntries` config, LRU eviction |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
@@ -1025,22 +790,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** `middleware.RequestID` generates IDs but they're not propagated to logs.
-
-**Fix:**
-- Add request ID to all slog calls via context
-- Include request ID in error responses
-- Add request ID to audit log entries
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/middleware/logging.go` | Extract request ID and add to context |
-| `apps/api/internal/slog/slog.go` | New — context-aware logger with request ID |
-| `apps/api/internal/handler/*.go` | Use context logger instead of global |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
@@ -1048,21 +798,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** Hardcoded paths like `/usr/share/OVMF/OVMF_CODE.secboot.fd` won't work on non-Linux systems.
-
-**Fix:**
-- Use `sysinfo` package consistently for all paths
-- Add Windows/macOS firmware paths where applicable
-- Validate paths exist before use
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/pkg/sysinfo/sysinfo.go` | Add `FirmwarePaths()` for all platforms |
-| `apps/api/internal/config/config.go` | Remove hardcoded paths, use sysinfo |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
@@ -1070,22 +806,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** SQLite stores metrics but no export endpoint for external monitoring.
-
-**Fix:**
-- Add `/metrics` endpoint with Prometheus format
-- Export: VM status, CPU/memory usage, disk usage, backup status
-- Add alerting rules for Prometheus
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/pkg/metrics/prometheus.go` | New — Prometheus metrics exporter |
-| `apps/api/internal/handler/metrics.go` | Add `/metrics` HTTP handler |
-| `apps/api/internal/router/router.go` | Wire metrics endpoint |
-
-**Complexity:** Medium.
+Pending.
 
 ---
 
@@ -1095,22 +816,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** Inconsistent error message format: "VM not found" vs "vm not found".
-
-**Fix:**
-- Standardize on sentence case: "VM not found"
-- Use resource type + ID format: "VM 100: not found"
-- Update all error creation sites
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/errors/errors.go` | Add error message format guidelines |
-| `apps/api/internal/service/*.go` | Update error messages |
-| `apps/api/internal/handler/*.go` | Update error messages |
-
-**Complexity:** Low (mechanical search/replace).
+Pending.
 
 ---
 
@@ -1118,22 +824,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** Proto files exist but no OpenAPI/Swagger documentation for REST clients.
-
-**Fix:**
-- Add `buf generate` target for OpenAPI
-- Serve OpenAPI spec at `/api/openapi.json`
-- Add Swagger UI at `/api/docs`
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `packages/proto/buf.gen.openapi.yaml` | New — OpenAPI generation config |
-| `apps/api/internal/router/router.go` | Serve OpenAPI spec and Swagger UI |
-| `Makefile` | Add `make openapi` target |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
@@ -1141,24 +832,7 @@ They address security, reliability, and operational gaps.
 
 **Status:** ⬜ **PENDING**
 
-**Issue:** `/health/ready` checks SQLite but not Libvirt connectivity.
-
-**Fix:**
-- Add Libvirt connectivity check to health endpoint
-- Add dependency-specific health checks:
-  - `/health/db` — SQLite only
-  - `/health/libvirt` — Libvirt only
-  - `/health/docker` — Docker only (for containers)
-- Return detailed status for each dependency
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `apps/api/internal/handler/health.go` | Split into granular health checks |
-| `apps/api/internal/router/router.go` | Add `/health/*` routes |
-
-**Complexity:** Low.
+Pending.
 
 ---
 
