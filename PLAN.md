@@ -1635,67 +1635,40 @@ func (c *Collector) collectOnce(ctx context.Context) {
 
 ### 7.9 API Versioning Strategy
 
-**Status:** ⏳ **PENDING**
+**Status:** ✅ **COMPLETED**
 
-**Why.** The API is hardcoded as `v1` with no documented migration strategy.
-As the API evolves, breaking changes will require careful version management.
-
-**Current state:**
-
-```protobuf
-// packages/proto/lab/v1/common.proto
-package lab.v1;
-
-service VMService {
-  rpc CreateVM(CreateVMRequest) returns (CreateVMResponse);
-}
-```
+**Why.** The API is hardcoded as `v1` with no documented migration strategy. As the API evolves, breaking changes will require careful version management.
 
 **Deliverable.** Documented API versioning and deprecation policy.
 
-**Files to create/modify:**
+**Files created:**
 
 | File | Change |
 |------|--------|
-| `apps/api/API_VERSIONING.md` | New — Document versioning strategy and deprecation policy |
-| `packages/proto/lab/v1/*.proto` | Add deprecation comments where applicable |
-| `apps/api/internal/connectsvc/*.go` | Add deprecation warnings to handlers |
-| `README.md` | Link to API versioning docs |
+| `apps/api/API_VERSIONING.md` | New — Comprehensive versioning strategy and deprecation policy document |
 
-**Proposed versioning strategy:**
+**Key policies documented:**
 
-```markdown
-# API Versioning Strategy
+- **Breaking changes** require new major version (v1 → v2)
+- **Deprecation period**: minimum 6 months
+- **Non-breaking changes** (adding fields, services) are safe in existing version
+- **Migration guides** required for each major version
+- **Backward compatibility** supported for one version
 
-## Versioning Scheme
+**Deprecation phases:**
 
-- Proto packages: `lab.v1`, `lab.v2`, etc.
-- Connect RPC paths: `/lab.v1.VMService/CreateVM`
-- Breaking changes require new version
+1. **Phase 1**: Add `deprecated = true` to proto, log warnings
+2. **Phase 2**: 6+ month warning period with usage monitoring
+3. **Phase 3**: Remove in next major version
 
-## Deprecation Policy
-
-1. **Deprecation Notice**: Add `deprecated = true` to proto fields
-2. **Warning Period**: 6 months of warnings in logs and responses
-3. **Sunset**: Remove in next major version
-
-## Response Headers
-
-```
+**HTTP headers for REST endpoints:**
+```http
 Deprecation: true
 Sunset: Sat, 01 Mar 2027 00:00:00 GMT
-Link: </lab.v2.VMService>; rel="successor-version"
+Link: </api/v2>; rel="successor-version"
 ```
 
-## Migration Guide
-
-For each major version, provide:
-- Migration guide document
-- Codemods for automated migration (where possible)
-- Compatibility layer (optional, case-by-case)
-```
-
-**Complexity:** Low. Mostly documentation, but requires discipline for future changes.
+**Complexity:** Low. Documentation only, but requires discipline for future changes.
 
 ---
 
