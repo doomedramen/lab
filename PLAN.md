@@ -1137,10 +1137,9 @@ accidentally used in production, allowing attackers to forge authentication toke
 
 ### 7.2 Refactor Monolithic main.go
 
-**Status:** ⏳ **PENDING**
+**Status:** ✅ **COMPLETED**
 
-**Why.** `cmd/server/main.go` is 360+ lines with all dependency injection, service
-initialization, and server setup in a single function. This makes it hard to:
+**Why.** `cmd/server/main.go` was 430+ lines with all dependency injection, service initialization, and server setup in a single function. This made it hard to:
 - Understand initialization order
 - Test initialization logic
 - Add new services without increasing complexity
@@ -1148,46 +1147,50 @@ initialization, and server setup in a single function. This makes it hard to:
 
 **Deliverable.** Modular initialization functions with clear separation of concerns.
 
-**Proposed structure:**
-
-```go
-func main() {
-    cfg := config.Load()
-    setupLogging(cfg)
-    
-    db := initDatabase(cfg)
-    defer db.Close()
-    
-    repos := initRepositories(db, cfg)
-    services := initServices(repos, cfg)
-    handlers := initHandlers(services, cfg)
-    
-    r := router.Router(handlers)
-    srv := initServer(r, cfg)
-    
-    if err := runServer(srv); err != nil {
-        log.Fatalf("Server error: %v", err)
-    }
-}
-```
-
-**Files to create/modify:**
+**Files created:**
 
 | File | Change |
 |------|--------|
-| `apps/api/cmd/server/main.go` | Refactor into modular init functions |
-| `apps/api/cmd/server/init_database.go` | New — Database initialization and migrations |
-| `apps/api/cmd/server/init_repositories.go` | New — Repository initialization |
-| `apps/api/cmd/server/init_services.go` | New — Service initialization with dependency injection |
-| `apps/api/cmd/server/init_handlers.go` | New — Handler initialization |
-| `apps/api/cmd/server/init_server.go` | New — HTTP server setup and graceful shutdown |
+| `cmd/server/init_repositories.go` | New — Repository initialization (150+ lines) |
+| `cmd/server/init_services.go` | New — Service initialization (230+ lines) |
+| `cmd/server/init_server.go` | New — HTTP server setup and helpers (175+ lines) |
+| `cmd/server/main.go` | Refactored — Now ~150 lines, orchestrates initialization |
 
-**Implementation notes:**
+**New structure:**
 
-- Keep dependency injection explicit (no magic containers)
-- Maintain initialization order: DB → Repos → Services → Handlers → Router → Server
-- Add logging for each initialization step
-- Consider using `google/wire` for compile-time dependency injection (future enhancement)
+```
+main.go (orchestrator)
+├── initDatabase() — SQLite initialization
+├── validateJWTSecret() — Security validation
+├── NewRepositories() — All repository initialization
+├── NewServices() — All service initialization
+├── NewServer() — HTTP server setup
+└── WaitForSignal() — Graceful shutdown handling
+```
+
+**Initialization flow:**
+```
+1. Load configuration
+2. Initialize SQLite database
+3. Validate JWT secret (fail fast)
+4. Initialize repositories (libvirt, SQLite, auth)
+5. Initialize services (auth, VM, backup, snapshot, etc.)
+6. Create middleware (auth interceptor, rate limiters)
+7. Create handlers (health, metrics, events)
+8. Create and start HTTP server
+9. Wait for shutdown signal
+10. Graceful shutdown (services → HTTP server)
+```
+
+**Benefits:**
+- Clear separation of concerns (repositories, services, server)
+- Easier to test individual initialization functions
+- Clear dependency order enforced by type system
+- Reduced cognitive load (main.go is now ~150 lines)
+- Easier to add new services (just add to NewServices)
+- Graceful shutdown properly ordered
+
+**Complexity:** Medium-High. Mechanical refactoring but required careful attention to dependency order and proper cleanup.
 - Preserve graceful shutdown logic
 
 **Complexity:** Medium. Mechanical refactoring but requires careful attention to
