@@ -1674,7 +1674,7 @@ Link: </api/v2>; rel="successor-version"
 
 ### 7.10 Establish Naming Conventions
 
-**Status:** ⏳ **PENDING**
+**Status:** ✅ **COMPLETED**
 
 **Why.** Inconsistent naming makes the codebase harder to navigate:
 - Package naming: `pkg/tus` vs `internal/handler`
@@ -1683,52 +1683,49 @@ Link: </api/v2>; rel="successor-version"
 
 **Deliverable.** Documented naming conventions.
 
-**Files to create:**
+**Files created:**
 
 | File | Change |
 |------|--------|
-| `apps/api/STYLE_GUIDE.md` | New — Document naming and style conventions |
+| `apps/api/STYLE_GUIDE.md` | New — Comprehensive naming and style conventions document |
 
-**Proposed conventions:**
+**Key conventions documented:**
 
-```markdown
-# Go Style Guide
+### Constructor Naming
 
-## Package Naming
+| Type | Pattern | Example |
+|------|---------|---------|
+| Services | `New<Service>Service` | `NewVMService`, `NewAuthService` |
+| Repositories | `New<Repo>Repository` | `NewUserRepository`, `NewVMRepository` |
+| Handlers | `New<Handler>Handler` | `NewHealthHandler`, `NewMetricsHandler` |
+| Middleware | `New<Middleware>` | `NewAuthInterceptor`, `NewRateLimiter` |
+| Utilities | `New<Type>` | `NewJWT`, `NewPassword`, `NewCollector` |
 
-- `pkg/*` — Public packages (exported types)
-- `internal/*` — Private packages (unexported types)
-- Use snake_case for package directories: `pkg/sysinfo`, `internal/connectsvc`
+### Variable Naming
 
-## Constructor Naming
+| Type | Pattern | Example |
+|------|---------|---------|
+| Services | `<type>Svc` or `<type>Service` | `vmSvc`, `authService` |
+| Repositories | `<type>Repo` | `userRepo`, `vmRepo` |
+| Handlers | `<type>Handler` | `healthHandler`, `metricsHandler` |
+| Context | Always `ctx` | `func Foo(ctx context.Context)` |
+| Errors | Always `err` | `if err != nil` |
 
-- Services: `New<Service>Service`: `NewAuthService`, `NewVMService`
-- Repositories: `New<Repo>Repository`: `NewUserRepository`, `NewVMRepository`
-- Handlers: `New<Handler>Handler`: `NewHealthHandler`, `NewMetricsHandler`
-- Middleware: `New<Middleware>`: `NewAuthInterceptor`, `NewRateLimiter`
-- Utilities: `New<Type>`: `NewJWT`, `NewPassword`, `NewRegistry`
+### Error Naming
 
-## Variable Naming
+| Type | Pattern | Example |
+|------|---------|---------|
+| Error variables | `Err<Resource><Condition>` | `ErrVMNotFound`, `ErrAuthFailed` |
+| Error types | `<Condition>Error` | `ValidationError`, `NotFoundError` |
 
-- Services: `<type>Svc` or full name: `authSvc`, `vmSvc` or `authService`, `vmService`
-- Repositories: `<type>Repo`: `userRepo`, `vmRepo`
-- Handlers: `<type>Handler`: `healthHandler`, `metricsHandler`
-- Context: always `ctx`
-- Errors: always `err`
+### Testing
 
-## Error Naming
+| Type | Pattern | Example |
+|------|---------|---------|
+| Test files | `<file>_test.go` | `vm_test.go`, `auth_test.go` |
+| Test functions | `Test<Service><Method><Scenario>` | `TestVMServiceCreateVM_ValidRequest` |
 
-- Error variables: `Err<Resource><Condition>`: `ErrVMNotFound`, `ErrAuthFailed`
-- Error types: `<Condition>Error`: `ValidationError`, `NotFoundError`
-
-## Testing
-
-- Test files: `<file>_test.go`
-- Test functions: `Test<Service><Method><Scenario>`: `TestVMServiceCreateVM_ValidRequest`
-- Table-driven tests: use `name` field for test case description
-```
-
-**Complexity:** Low. Documentation only, but may lead to future refactoring.
+**Complexity:** Low. Documentation only, to be enforced gradually through code review.
 
 ---
 
