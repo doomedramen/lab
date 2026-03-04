@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "dependencies": {
     "@base-ui/react": "^1.2.0",
     "@bufbuild/protobuf": "latest",
@@ -52,11 +52,10 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "eslint": "^10.0.2",
-    "eslint-config-next": "^16.1.6",
     "jsdom": "^26.0.0",
+    "oxfmt": "^0.36.0",
+    "oxlint": "^1.51.0",
     "playwright": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",
@@ -65,11 +64,13 @@
     "vitest": "^3.0.7"
   },
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "next build",
     "check-types": "tsc --noEmit",
     "dev": "next dev --turbo",
-    "lint": "eslint .",
+    "lint": "oxlint .",
+    "format": "oxfmt --write .",
     "start": "next start",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
