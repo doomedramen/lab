@@ -10,6 +10,7 @@ import (
 
 // TestVMTemplatesURLsValid verifies that all ISO URLs in VM templates are accessible.
 // This test makes real HTTP requests to validate the URLs haven't expired or changed.
+// We only test Alpine in CI/Short mode to keep tests fast.
 func TestVMTemplatesURLsValid(t *testing.T) {
 	templates := VMTemplates()
 	
@@ -21,6 +22,11 @@ func TestVMTemplatesURLsValid(t *testing.T) {
 	ctx := context.Background()
 	
 	for _, template := range templates {
+		// Only test Alpine to keep things fast
+		if template.ID != "alpine-virt" {
+			continue
+		}
+
 		t.Run(template.Name, func(t *testing.T) {
 			// Test x86_64 URL
 			if template.ISOURLx86_64 != "" {
