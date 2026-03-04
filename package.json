@@ -4,6 +4,7 @@
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "lefthook": "^2.1.2",
     "prettier": "^3.8.1",
     "syncpack": "^14.0.0",
     "turbo": "^2.8.1",
