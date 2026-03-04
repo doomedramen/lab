@@ -30,11 +30,14 @@ func TestVMTemplatesURLsValid(t *testing.T) {
 						t.Skip("URL is empty for x86_64")
 					}
 					
-					// Create HEAD request to check if URL exists (lightweight)
-					req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+					// Use GET with Range header to check if URL exists
+					// Some mirrors don't support HEAD or return 405/403.
+					// A small range request is efficient and widely supported.
+					req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 					if err != nil {
 						t.Fatalf("Failed to create request: %v", err)
 					}
+					req.Header.Set("Range", "bytes=0-0")
 					
 					// Set User-Agent to avoid being blocked
 					req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Lab VM Template Test)")
@@ -67,10 +70,11 @@ func TestVMTemplatesURLsValid(t *testing.T) {
 						t.Skip("URL is empty for aarch64")
 					}
 					
-					req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+					req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 					if err != nil {
 						t.Fatalf("Failed to create request: %v", err)
 					}
+					req.Header.Set("Range", "bytes=0-0")
 					
 					req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Lab VM Template Test)")
 					

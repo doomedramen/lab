@@ -191,8 +191,9 @@ func captureStackTrace(skip int) string {
 // New creates a new API error with the specified code and message
 func New(code ErrorCode, message string) *APIError {
 	return &APIError{
-		Code:    code,
-		Message: message,
+		Code:       code,
+		Message:    message,
+		StackTrace: captureStackTrace(3),
 	}
 }
 
@@ -200,14 +201,6 @@ func New(code ErrorCode, message string) *APIError {
 func Wrap(err error, code ErrorCode, message string) *APIError {
 	if err == nil {
 		return nil
-	}
-	
-	// If already an APIError, update it
-	if apiErr, ok := err.(*APIError); ok {
-		apiErr.Message = message
-		apiErr.Cause = err
-		apiErr.StackTrace = captureStackTrace(3)
-		return apiErr
 	}
 	
 	return &APIError{
