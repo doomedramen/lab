@@ -97,6 +97,14 @@ func (s *VmServiceServer) CreateVM(
 	if req.Msg.DiskGb > 102400 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("disk_gb %.1f exceeds the maximum of 102400 GB (100 TB)", req.Msg.DiskGb))
 	}
+	// TPM and Secure Boot require OVMF BIOS
+	if req.Msg.Tpm && req.Msg.Bios != labv1.BiosType_BIOS_TYPE_OVMF {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("TPM 2.0 requires OVMF (UEFI) BIOS"))
+	}
+	if req.Msg.SecureBoot && req.Msg.Bios != labv1.BiosType_BIOS_TYPE_OVMF {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("Secure Boot requires OVMF (UEFI) BIOS"))
+	}
+	// Secure Boot also requires TPM for Windows 11 (recommended but not enforced)
 	// --- End validation ---
 
 	modelReq := protoCreateVMRequestToModel(req.Msg)
@@ -171,29 +179,18 @@ func (s *VmServiceServer) UpdateVM(
 		modelReq.Memory = &v
 	}
 	// For bool fields, we need to check if they were explicitly set
-	// In proto3, bools default to false, so we need a different approach
-	// We'll use a mask field or accept that false means "don't change"
-	// For now, we'll only set if true (user can only enable, not disable via this API)
-	if req.Msg.Agent {
-		v := true
-		modelReq.Agent = &v
-	}
-	if req.Msg.NestedVirt {
-		v := true
-		modelReq.NestedVirt = &v
-	}
-	if req.Msg.StartOnBoot {
-		v := true
-		modelReq.StartOnBoot = &v
-	}
-	if req.Msg.Tpm {
-		v := true
-		modelReq.TPM = &v
-	}
-	if req.Msg.SecureBoot {
-		v := true
-		modelReq.SecureBoot = &v
-	}
+	// In proto3, bools default to false, so we can't distinguish between
+	// "not set" and "set to false". We use a workaround: only process
+	// if the value is true (user wants to enable) OR if we add explicit
+	// mask fields in the future.
+	// For now, we handle both enable and disable by always setting the field
+	// This means TPM/SecureBoot can be toggled on or off.
+	modelReq.Agent = &req.Msg.Agent
+	modelReq.NestedVirt = &req.Msg.NestedVirt
+	modelReq.StartOnBoot = &req.Msg.StartOnBoot
+	modelReq.TPM = &req.Msg.Tpm
+	modelReq.SecureBoot = &req.Msg.SecureBoot
+	
 	if len(req.Msg.BootOrder) > 0 {
 		modelReq.BootOrder = req.Msg.BootOrder
 	}

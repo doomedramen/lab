@@ -211,16 +211,21 @@ func (r *VMRepository) buildDomainXML(req *model.VMCreateRequest, vmid int, memo
 		}
 		if osArch == "aarch64" {
 			// aarch64: pflash loader only — no separate NVRAM needed for Alpine/basic EFI
+			// Note: Secure Boot on aarch64 is limited; most guests don't support it
 			biosXML = fmt.Sprintf(`
     <loader readonly='yes' type='pflash'>%s</loader>`, ovmfPath)
 		} else {
 			// x86_64: pflash code + NVRAM vars
+			// Ensure NVRAM directory exists
+			nvramDir := fmt.Sprintf("%s/nvram", r.cfg.Storage.VMDiskDir)
+			os.MkdirAll(nvramDir, 0755)
+
 			// Use secure boot template for NVRAM if SecureBoot is enabled
 			nvramTemplate := ""
 			if req.SecureBoot {
 				nvramTemplate = " template='/usr/share/OVMF/OVMF_VARS.secboot.fd'"
 			}
-			nvramPath := fmt.Sprintf("%s/nvram/%s_VARS.fd", r.cfg.Storage.VMDiskDir, req.Name)
+			nvramPath := fmt.Sprintf("%s/nvram/vm-%d_VARS.fd", r.cfg.Storage.VMDiskDir, vmid)
 			biosXML = fmt.Sprintf(`
     <loader readonly='yes' type='pflash' secure='%s'>%s</loader>
     <nvram%s>%s</nvram>`, boolToStr(req.SecureBoot), ovmfPath, nvramTemplate, nvramPath)
@@ -291,15 +296,22 @@ func (r *VMRepository) buildDomainXML(req *model.VMCreateRequest, vmid int, memo
 
 	// --- TPM 2.0 device (for Windows 11) ---
 	// TPM requires swtpm to be installed on the host
+	// TPM 2.0 is only supported on x86_64 with OVMF firmware
 	tpmXML := ""
-	if req.TPM && req.BIOS == model.BIOSTypeOVMF && osArch != "aarch64" {
+	if req.TPM && req.BIOS == model.BIOSTypeOVMF && osArch == "x86_64" {
 		// TPM state directory for this VM
+		// swtpm requires a dedicated directory per VM with proper permissions
 		tpmStatePath := fmt.Sprintf("%s/tpm/vm-%d", r.cfg.Storage.VMDiskDir, vmid)
-		os.MkdirAll(tpmStatePath, 0755)
+		if err := os.MkdirAll(tpmStatePath, 0755); err != nil {
+			// Log error but don't fail - TPM won't be enabled
+			log.Printf("buildDomainXML: failed to create TPM state directory: %v", err)
+		}
+		// TPM 2.0 CRB (Command Response Buffer) model with swtpm emulator backend
+		// The state prefix tells swtpm where to store all TPM state files
 		tpmXML = fmt.Sprintf(`
     <tpm model='tpm-crb'>
       <backend type='emulator' version='2.0'>
-        <active_persistent_state>%s/tpm2-00.permall</active_persistent_state>
+        <statepath>%s</statepath>
       </backend>
     </tpm>`, tpmStatePath)
 	}
@@ -762,6 +774,63 @@ func (r *VMRepository) Update(_ context.Context, vmid int, req *model.VMUpdateRe
 			}
 			domainXML.OS.BootDevices = bootDevices
 		}
+
+		// TPM 2.0 device
+		if req.TPM != nil {
+			hasTPM := hasTPMDevice(domainXML)
+			if *req.TPM && !hasTPM {
+				// Add TPM device - only if OVMF BIOS is used
+				if domainXML.OS != nil && domainXML.OS.Loader != nil {
+					// Get VM name for TPM state path
+					vmName := domainXML.Name
+					vmid := r.extractVMID(vmName)
+					tpmStatePath := fmt.Sprintf("%s/tpm/vm-%d", r.cfg.Storage.VMDiskDir, vmid)
+					os.MkdirAll(tpmStatePath, 0755)
+					
+					if domainXML.Devices == nil {
+						domainXML.Devices = &libvirtxml.DomainDeviceList{}
+					}
+					// Add TPM 2.0 CRB device with swtpm emulator backend
+					// The emulator backend uses a directory source for state storage
+					domainXML.Devices.TPMs = append(domainXML.Devices.TPMs, libvirtxml.DomainTPM{
+						Model: "tpm-crb",
+						Backend: &libvirtxml.DomainTPMBackend{
+							Emulator: &libvirtxml.DomainTPMBackendEmulator{
+								Version: "2.0",
+								Source: &libvirtxml.DomainTPMBackendSource{
+									Dir: &libvirtxml.DomainTPMBackendSourceDir{
+										Path: tpmStatePath,
+									},
+								},
+							},
+						},
+					})
+				}
+			} else if !*req.TPM && hasTPM {
+				// Remove TPM device
+				if domainXML.Devices != nil {
+					domainXML.Devices.TPMs = []libvirtxml.DomainTPM{}
+				}
+			}
+		}
+
+		// Secure Boot
+		if req.SecureBoot != nil {
+			// Secure Boot requires OVMF BIOS
+			if domainXML.OS != nil && domainXML.OS.Loader != nil {
+				// Update loader secure attribute
+				domainXML.OS.Loader.Secure = boolToStr(*req.SecureBoot)
+				
+				// Update NVRAM template if secure boot is enabled
+				if domainXML.OS.NVRam != nil {
+					if *req.SecureBoot {
+						domainXML.OS.NVRam.Template = "/usr/share/OVMF/OVMF_VARS.secboot.fd"
+					} else {
+						domainXML.OS.NVRam.Template = ""
+					}
+				}
+			}
+		}
 	}
 
 	// Marshal updated XML
@@ -819,6 +888,26 @@ func hasNestedVirtFeature(domainXML *libvirtxml.Domain) bool {
 		}
 	}
 	return false
+}
+
+// hasTPMDevice checks if the domain XML has a TPM device configured
+func hasTPMDevice(domainXML *libvirtxml.Domain) bool {
+	if domainXML.Devices == nil {
+		return false
+	}
+	if domainXML.Devices.TPMs == nil {
+		return false
+	}
+	return len(domainXML.Devices.TPMs) > 0
+}
+
+// hasSecureBootEnabled checks if the domain XML has Secure Boot enabled
+func hasSecureBootEnabled(domainXML *libvirtxml.Domain) bool {
+	if domainXML.OS == nil || domainXML.OS.Loader == nil {
+		return false
+	}
+	// Check if loader has secure='yes' attribute
+	return domainXML.OS.Loader.Secure == "yes"
 }
 
 // Delete removes a VM. The VM must be stopped before deletion.

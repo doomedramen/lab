@@ -9,6 +9,9 @@ pre-commit:
       root: "apps/web"
       run: pnpm check-types
       glob: "*.{ts,tsx}"
+    bump-versions:
+      run: node scripts/bump-versions.js && git add VERSION apps/web/package.json apps/api/package.json package.json
+      glob: "**/*.{ts,tsx,js,go}"
 
 pre-push:
   parallel: false

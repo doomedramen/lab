@@ -412,8 +412,8 @@ active proxy mappings and allowing quick configuration.
 | 4   | VM Clone                            | 1     | Medium      | High — required for template workflows          | ✅ **DONE** |
 | 5   | Alerting system                     | 2     | Medium      | High — operational safety net                   | ✅ **DONE** |
 | 6   | Guest agent integration             | 2     | Low-Medium  | High — IP discovery, consistent backups         | ✅ **DONE** |
-| 7   | TPM 2.0 + Secure Boot               | 2     | Low         | High — Windows 11 support                       | 🔄 **NEXT** |
-| 8   | PCI / GPU Passthrough               | 2     | Medium-High | High — home server differentiator               |             |
+| 7   | TPM 2.0 + Secure Boot               | 2     | Low         | High — Windows 11 support                       | ✅ **DONE** |
+| 8   | PCI / GPU Passthrough               | 2     | Medium-High | High — home server differentiator               | 🔄 **NEXT** |
 | 9   | Auth rate limiting                  | 3     | Very Low    | Critical security fix                           |             |
 | 10  | Host shell access                   | 3     | Low         | Medium — useful for troubleshooting             |             |
 | 11  | Boot order config                   | 3     | Low         | Medium                                          |             |
@@ -484,9 +484,18 @@ a "Disks" tab with full disk management:
 - Full UI with three tabs: Alerts, Rules, Channels
 - Acknowledge and resolve alerts from UI
 
-**Next up: 2.3 TPM 2.0 + Secure Boot** — Add TPM 2.0 and Secure Boot support
-for Windows 11 compatibility. This involves adding XML generation for TPM
-devices and OVMF secure boot firmware selection.
+**Phase 2.3 TPM 2.0 + Secure Boot is complete:**
+
+- TPM 2.0 device support using swtpm emulator backend with proper state directory management
+- Secure Boot support with OVMF firmware and NVRAM variable storage
+- Input validation: TPM and Secure Boot require OVMF (UEFI) BIOS
+- UI: Edit Settings modal with TPM, Secure Boot, and other advanced options
+- Runtime safety: Hardware settings can only be changed when VM is stopped
+- Windows 11 VMs now fully supported
+
+**Next up: 2.4 PCI / GPU Passthrough** — Add PCI device passthrough support
+for GPU and other hardware acceleration. This involves IOMMU group detection,
+VFIO driver binding, and libvirt hostdev XML configuration.
 
 ---
 

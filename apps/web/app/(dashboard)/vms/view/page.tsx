@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   StatusBadge,
@@ -83,7 +82,6 @@ import {
   MachineType,
   BiosType,
 } from "@/lib/gen/lab/v1/common_pb";
-import { DiskBus, DiskFormat } from "@/lib/gen/lab/v1/storage_pb";
 import {
   vmStatusToString,
   osTypeToString,
@@ -205,6 +203,7 @@ const confirmConfigs: Record<
 function VMDetailContent({
   vm,
   mutationProps,
+  onEditSettings,
 }: {
   vm: VM;
   mutationProps: {
@@ -231,6 +230,7 @@ function VMDetailContent({
       console: boolean;
     };
   };
+  onEditSettings: () => void;
 }) {
   const {
     onPlay,
@@ -479,6 +479,17 @@ function VMDetailContent({
 
         {/* Hardware */}
         <TabsContent value="hardware" className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium">Hardware Configuration</h3>
+            <Button
+              size="sm"
+              onClick={onEditSettings}
+              disabled={vm.status === VmStatus.RUNNING}
+            >
+              <Edit className="size-4 mr-2" />
+              Edit Settings
+            </Button>
+          </div>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">
@@ -539,6 +550,18 @@ function VMDetailContent({
                   label="Display"
                   value="VNC"
                   badge="vnc"
+                />
+                <ResourceConfigItem
+                  icon={<Shield className="size-4 text-muted-foreground" />}
+                  label="TPM 2.0"
+                  value=""
+                  badge={vm.tpm ? "Enabled" : "Disabled"}
+                />
+                <ResourceConfigItem
+                  icon={<Shield className="size-4 text-muted-foreground" />}
+                  label="Secure Boot"
+                  value=""
+                  badge={vm.secureBoot ? "Enabled" : "Disabled"}
                 />
               </div>
             </CardContent>
@@ -776,6 +799,14 @@ function VMDetailView() {
   const [cloneDescription, setCloneDescription] = useState("");
   const [cloneStartAfter, setCloneStartAfter] = useState(false);
 
+  // Edit settings modal state
+  const [editSettingsOpen, setEditSettingsOpen] = useState(false);
+  const [editTpm, setEditTpm] = useState(false);
+  const [editSecureBoot, setEditSecureBoot] = useState(false);
+  const [editStartOnBoot, setEditStartOnBoot] = useState(true);
+  const [editNestedVirt, setEditNestedVirt] = useState(false);
+  const [editAgent, setEditAgent] = useState(true);
+
   // Console dialog state
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleWsUrl, setConsoleWsUrl] = useState<string | null>(null);
@@ -794,6 +825,7 @@ function VMDetailView() {
     deleteVM,
     cloneVM,
     getConsole,
+    updateVM,
     isStarting,
     isStopping,
     isShuttingDown,
@@ -803,6 +835,7 @@ function VMDetailView() {
     isDeleting,
     isCloning,
     isGettingConsole,
+    isUpdating,
   } = useVMMutations({
     onDeleteSuccess: () => router.push("/vms"),
     onCloneSuccess: () => {
@@ -810,7 +843,21 @@ function VMDetailView() {
       setCloneName("");
       setCloneDescription("");
     },
+    onUpdateSuccess: () => {
+      setEditSettingsOpen(false);
+    },
   });
+
+  // Sync edit state with VM data when it changes
+  useEffect(() => {
+    if (vm) {
+      setEditTpm(vm.tpm ?? false);
+      setEditSecureBoot(vm.secureBoot ?? false);
+      setEditStartOnBoot(vm.startOnBoot ?? true);
+      setEditNestedVirt(vm.nestedVirt ?? false);
+      setEditAgent(vm.agent ?? true);
+    }
+  }, [vm]);
 
   if (error) {
     return (
@@ -931,6 +978,7 @@ function VMDetailView() {
               console: isGettingConsole,
             },
           }}
+          onEditSettings={() => setEditSettingsOpen(true)}
         />
       </Shimmer>
 
@@ -1114,6 +1162,156 @@ function VMDetailView() {
               ) : (
                 "Clone"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Settings Modal */}
+      <Dialog open={editSettingsOpen} onOpenChange={setEditSettingsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit VM Settings</DialogTitle>
+            <DialogDescription>
+              Configure advanced VM settings. VM must be stopped to apply
+              changes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            {vm?.status === VmStatus.RUNNING && (
+              <div className="flex items-start gap-2 text-sm text-amber-600 bg-amber-500/10 p-3 rounded-lg">
+                <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                <span>
+                  VM must be stopped to change these settings. Please shutdown
+                  the VM first.
+                </span>
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="edit-tpm" className="cursor-pointer">
+                    TPM 2.0
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Trusted Platform Module for Windows 11
+                  </p>
+                </div>
+                <Switch
+                  id="edit-tpm"
+                  checked={editTpm}
+                  onCheckedChange={setEditTpm}
+                  disabled={vm?.status === VmStatus.RUNNING}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="edit-secure-boot" className="cursor-pointer">
+                    Secure Boot
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    UEFI Secure Boot (requires OVMF)
+                  </p>
+                </div>
+                <Switch
+                  id="edit-secure-boot"
+                  checked={editSecureBoot}
+                  onCheckedChange={setEditSecureBoot}
+                  disabled={vm?.status === VmStatus.RUNNING}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label
+                    htmlFor="edit-start-on-boot"
+                    className="cursor-pointer"
+                  >
+                    Start on Boot
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Auto-start VM when host boots
+                  </p>
+                </div>
+                <Switch
+                  id="edit-start-on-boot"
+                  checked={editStartOnBoot}
+                  onCheckedChange={setEditStartOnBoot}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="edit-nested-virt" className="cursor-pointer">
+                    Nested Virtualization
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Allow running VMs inside this VM
+                  </p>
+                </div>
+                <Switch
+                  id="edit-nested-virt"
+                  checked={editNestedVirt}
+                  onCheckedChange={setEditNestedVirt}
+                  disabled={vm?.status === VmStatus.RUNNING}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="edit-agent" className="cursor-pointer">
+                    QEMU Guest Agent
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enhanced integration and monitoring
+                  </p>
+                </div>
+                <Switch
+                  id="edit-agent"
+                  checked={editAgent}
+                  onCheckedChange={setEditAgent}
+                  disabled={vm?.status === VmStatus.RUNNING}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditSettingsOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!vm) return;
+                updateVM.mutate({
+                  vmid: vm.vmid,
+                  tpm: editTpm,
+                  secureBoot: editSecureBoot,
+                  startOnBoot: editStartOnBoot,
+                  nestedVirt: editNestedVirt,
+                  agent: editAgent,
+                } as any);
+              }}
+              disabled={
+                isUpdating || vm?.status === VmStatus.RUNNING
+              }
+            >
+              {isUpdating && <Loader2 className="size-4 mr-2 animate-spin" />}
+              {isUpdating ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

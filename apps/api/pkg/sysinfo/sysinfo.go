@@ -2,7 +2,7 @@
 // host system metrics such as CPU usage, memory, disk, uptime and network I/O.
 //
 // Obtain an instance via New() — the correct implementation is selected at
-// compile time via build constraints (linux.go, darwin.go, stub.go).
+// compile time via build constraints (linux.go, stub.go).
 package sysinfo
 
 // SystemInfo is the interface through which callers retrieve host metrics.
@@ -27,7 +27,7 @@ type SystemInfo interface {
 	GetNetworkStats() (in, out float64)
 
 	// GetKernelVersion returns a short identifier for the running OS/kernel,
-	// e.g. "Linux 6.8.0" or "Darwin 25.3.0".
+	// e.g. "Linux 6.8.0".
 	GetKernelVersion() string
 
 	// DefaultCPUModel returns the recommended default CPU model for the given
@@ -47,15 +47,11 @@ type SystemInfo interface {
 	EmulatorPath(guestArch string) string
 
 	// SupportsBridgeNetworking returns true if the host supports bridge
-	// networking for VMs. On Linux this checks for qemu-bridge-helper,
-	// on macOS it checks for vmnet framework (macOS 11.0+).
+	// networking for VMs. On Linux this checks for qemu-bridge-helper.
 	SupportsBridgeNetworking() bool
 
-	// IsDarwin returns true if running on macOS
-	IsDarwin() bool
-
 	// DefaultBridgeName returns the default bridge interface name for the platform.
-	// Returns empty string if bridge name is not needed (e.g., macOS vmnet-shared).
+	// Returns empty string if bridge name is not needed.
 	DefaultBridgeName() string
 
 	// DefaultNetworkType returns the default network type for the platform.

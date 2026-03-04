@@ -1,5 +1,5 @@
-//go:build !linux && !darwin
-// +build !linux,!darwin
+//go:build !linux
+// +build !linux
 
 package sysinfo
 
@@ -44,9 +44,8 @@ func (s *stubInfo) EmulatorPath(guestArch string) string {
 	return fmt.Sprintf("qemu-system-%s", guestArch)
 }
 func (s *stubInfo) SupportsBridgeNetworking() bool { return false }
-func (s *stubInfo) IsDarwin() bool { return false }
-func (s *stubInfo) DefaultBridgeName() string { return "" }
-func (s *stubInfo) DefaultNetworkType() string { return "user" }
+func (s *stubInfo) DefaultBridgeName() string      { return "" }
+func (s *stubInfo) DefaultNetworkType() string     { return "user" }
 func (s *stubInfo) DataDir() string {
 	homeDir, _ := os.UserHomeDir()
 	return filepath.Join(homeDir, ".lab")

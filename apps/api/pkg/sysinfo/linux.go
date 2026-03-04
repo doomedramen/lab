@@ -234,8 +234,6 @@ func (l *linuxInfo) SupportsBridgeNetworking() bool {
 	return false
 }
 
-func (l *linuxInfo) IsDarwin() bool { return false }
-
 func (l *linuxInfo) DefaultBridgeName() string {
 	// Linux uses traditional bridge networking with vmbr0 (Proxmox convention)
 	return "vmbr0"

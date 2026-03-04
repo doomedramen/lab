@@ -31,11 +31,11 @@ test: test-unit test-e2e
 
 # Run API unit tests in Lima VM
 test-unit:
-	limactl shell lab -- bash -c "cd $(APP) && pnpm --filter api test"
+	limactl shell lab -- bash -c "cd $(APP) && pnpm test:unit"
 
 # Run E2E tests in Lima VM
 test-e2e:
-	limactl shell lab -- bash -c "cd $(APP) && pnpm --filter web test:e2e"
+	limactl shell lab -- bash -c "cd $(APP) && pnpm test:e2e"
 
 # ── Lima VM Management ─────────────────────────────────────────────
 

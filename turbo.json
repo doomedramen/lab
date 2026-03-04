@@ -3,19 +3,23 @@
   "ui": "stream",
   "tasks": {
     "generate": {
-      "cache": false,
-      "outputs": ["apps/api/gen/**", "apps/web/lib/gen/**"]
+      "inputs": ["../../packages/proto/**/*.proto", "../../packages/proto/buf.gen.*.yaml"],
+      "outputs": ["gen/**", "lib/gen/**"],
+      "cache": true
     },
     "build": {
       "dependsOn": ["^build", "generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "bin/**"]
+      "outputs": [".next/**", "!.next/cache/**", "bin/**", "out/**"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint", "generate"]
+    },
+    "format": {
+      "dependsOn": ["generate"]
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": ["^check-types", "generate"]
     },
     "dev": {
       "cache": false,
@@ -26,25 +30,30 @@
       "persistent": true
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "generate"],
+      "cache": true
+    },
+    "test:unit": {
+      "dependsOn": ["generate"],
+      "cache": true
+    },
+    "test:integration": {
+      "dependsOn": ["generate"],
       "cache": true
     },
     "test:e2e": {
       "dependsOn": ["generate"],
       "cache": false,
-      "persistent": false,
       "env": ["NEXT_PUBLIC_API_URL"]
     },
-     "test:e2e:headed": {
+    "test:e2e:headed": {
       "dependsOn": ["generate"],
       "cache": false,
-      "persistent": false,
       "env": ["NEXT_PUBLIC_API_URL"]
     },
-     "test:e2e:ui": {
+    "test:e2e:ui": {
       "dependsOn": ["generate"],
       "cache": false,
-      "persistent": false,
       "env": ["NEXT_PUBLIC_API_URL"]
     }
   }
