@@ -203,6 +203,15 @@ func Wrap(err error, code ErrorCode, message string) *APIError {
 		return nil
 	}
 	
+	// If already an APIError, update it
+	if apiErr, ok := err.(*APIError); ok {
+		apiErr.Message = message
+		apiErr.Code = code // Update code as well
+		apiErr.Cause = err
+		apiErr.StackTrace = captureStackTrace(3)
+		return apiErr
+	}
+	
 	return &APIError{
 		Code:       code,
 		Message:    message,

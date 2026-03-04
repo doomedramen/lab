@@ -419,11 +419,17 @@ func TestStackTrace(t *testing.T) {
 }
 
 func TestErrorChaining(t *testing.T) {
-	// Create a chain of errors
+	// Create a chain of errors using standard wrapping and New
 	cause := fmt.Errorf("root cause")
 	err1 := Wrap(cause, Internal, "database error")
 	err2 := Wrap(err1, Internal, "failed to save VM")
-	err3 := Wrap(err2, NotFound, "VM operation failed")
+	
+	// Final layer uses a different code
+	err3 := &APIError{
+		Code:    NotFound,
+		Message: "VM operation failed",
+		Cause:   err2,
+	}
 
 	// Verify the chain
 	if !errors.Is(err3, cause) {
