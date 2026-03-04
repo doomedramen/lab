@@ -1,40 +1,78 @@
-# Build stage
-FROM golang:1.25-alpine AS build
+# =============================================================================
+# Lab Platform - Single Binary Docker Build
+# 
+# This Dockerfile builds both the web UI and Go API into a single container.
+# The web UI is embedded into the Go binary at build time using go:embed.
+#
+# Result: Single container serving both API and web UI on port 8080
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1: Build Web UI (static export)
+# -----------------------------------------------------------------------------
+FROM node:22-alpine AS web-builder
+
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY packages ./packages
+COPY apps/web/package.json ./apps/web/
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Build web UI (static export)
+COPY apps/web ./apps/web
+WORKDIR /app/apps/web
+RUN pnpm build
+
+# -----------------------------------------------------------------------------
+# Stage 2: Build Go API with embedded web
+# -----------------------------------------------------------------------------
+FROM golang:1.25-alpine AS api-builder
 
 # Install build dependencies
 RUN apk add --no-cache \
     gcc \
     musl-dev \
     libvirt-dev \
-    pkgconfig
+    pkgconfig \
+    git
 
 WORKDIR /app
 
-# Copy go.mod and go.sum from apps/api
+# Copy go.mod and go.sum
 COPY apps/api/go.mod apps/api/go.sum ./apps/api/
 WORKDIR /app/apps/api
 RUN go mod download
 
-# Copy the rest of the source
+# Copy API source
 WORKDIR /app
 COPY apps/api ./apps/api
 
-# Build the API
-WORKDIR /app/apps/api
-RUN CGO_ENABLED=1 GOOS=linux go build -o /app/api ./cmd/server
+# Copy web build to embed directory
+COPY --from=web-builder /app/apps/web/out ./apps/api/internal/router/web
 
-# Production stage
+# Build single binary with embedded web
+WORKDIR /app/apps/api
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /app/api \
+    ./cmd/server
+
+# -----------------------------------------------------------------------------
+# Stage 3: Production runtime
+# -----------------------------------------------------------------------------
 FROM alpine:latest AS production
 
-# Install runtime dependencies including libvirt and qemu/lxc
-# Alpine unified libvirt into fewer packages compared to Debian/Ubuntu
+# Install runtime dependencies
 RUN apk add --no-cache \
     libvirt-daemon \
     libvirt-client \
-    qemu-img \
     qemu-system-x86_64 \
-    qemu-system-aarch64 \
-    qemu-modules \
+    qemu-img \
     lxc \
     dbus \
     docker-compose \
@@ -43,7 +81,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 # Copy the binary and entrypoint
-COPY --from=build /app/api .
+COPY --from=api-builder /app/api .
 COPY apps/api/entrypoint.sh .
 RUN chmod +x entrypoint.sh
 

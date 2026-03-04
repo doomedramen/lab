@@ -95,7 +95,7 @@ function HostsContent({ nodes }: { nodes: Node[] }) {
             {nodes.map((node) => (
               <TableRow key={node.id}>
                 <TableCell>
-                  <Link href={`/hosts/${node.id}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+                  <Link href={`/hosts/view?id=${node.id}`} className="flex items-center gap-2 hover:text-primary transition-colors">
                     <Server className="size-4 text-muted-foreground shrink-0" />
                     <div>
                       <div className="font-medium text-foreground">{node.name}</div>

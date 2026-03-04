@@ -1,25 +1,26 @@
 [Unit]
-Description=Lab Web UI
+Description=Lab Virtualization Platform
 Documentation=https://github.com/doomedramen/lab/blob/main/DEPLOYMENT_SYSTEMD.md
-After=network.target lab-api.service
-Requires=lab-api.service
+After=network.target libvirtd.service docker.service
+Requires=libvirtd.service
+Wants=docker.service
 
 [Service]
 Type=exec
 User=lab
-Group=lab
+Group=libvirt
 
 # Working directory
-WorkingDirectory=/opt/lab/web
+WorkingDirectory=/opt/lab
 
-# Main executable
-ExecStart=/usr/bin/node server.js
+# Main executable (single binary with embedded web UI)
+ExecStart=/opt/lab/api/lab-server
+ExecReload=/bin/kill -HUP $MAINPID
 
 # Environment
-EnvironmentFile=-/etc/lab/lab-web.env
-Environment=NODE_ENV=production
-Environment=PORT=3000
-Environment=HOSTNAME=0.0.0.0
+EnvironmentFile=-/etc/lab/lab-api.env
+Environment=LAB_CONFIG=/etc/lab/config.yaml
+Environment=LAB_ENV=production
 
 # Restart policy
 Restart=always
@@ -30,7 +31,7 @@ StartLimitInterval=60s
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=lab-web
+SyslogIdentifier=lab
 
 # Security hardening
 NoNewPrivileges=true
@@ -40,11 +41,11 @@ PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
-ReadWritePaths=/opt/lab/web/.next
+ReadWritePaths=/var/lib/lab
 
 # Resource limits
 LimitNOFILE=65536
-LimitNPROC=1024
+LimitNPROC=4096
 
 [Install]
 WantedBy=multi-user.target

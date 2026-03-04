@@ -1,0 +1,229 @@
+# Lab Platform - Release Makefile
+# =============================================================================
+#
+# Release automation for building and publishing Lab Platform
+#
+# Usage:
+#   make release VERSION=1.0.0    # Build release for current platform
+#   make release-all VERSION=1.0.0 # Build for all platforms
+#   make docker-build VERSION=1.0.0 # Build Docker image
+#   make release-notes             # Generate release notes
+#
+# =============================================================================
+
+.PHONY: release release-all release-linux release-docker \
+        build-web build-binary package-archive \
+        docker-build docker-push \
+        checksums clean release-notes
+
+# Version (can be overridden or set via environment)
+VERSION ?= dev
+
+# Directories
+API_DIR := apps/api
+WEB_DIR := apps/web
+BIN_DIR := $(API_DIR)/bin
+DIST_DIR := dist
+
+# Binary name
+BINARY := lab-server
+
+# =============================================================================
+# Main Release Targets
+# =============================================================================
+
+## Build complete release for current platform
+release: build-web build-binary package-archive
+	@echo "✅ Release $(VERSION) built successfully"
+	@echo "📦 Artifacts in $(DIST_DIR)/"
+
+## Build release for all supported platforms
+release-all: release-linux release-linux-arm64
+	@echo "✅ Release $(VERSION) built for all platforms"
+
+## Build release for Linux x86_64
+release-linux:
+	@echo "🔨 Building for Linux x86_64..."
+	$(MAKE) build-web
+	$(MAKE) build-binary GOOS=linux GOARCH=amd64 CGO_ENABLED=1 SUFFIX=-linux-amd64
+	$(MAKE) package-archive SUFFIX=-linux-amd64
+
+## Build release for Linux ARM64
+release-linux-arm64:
+	@echo "🔨 Building for Linux ARM64..."
+	$(MAKE) build-web
+	$(MAKE) build-binary GOOS=linux GOARCH=arm64 CGO_ENABLED=1 SUFFIX=-linux-arm64
+	$(MAKE) package-archive SUFFIX=-linux-arm64
+
+## Build Docker image
+release-docker: docker-build
+	@echo "✅ Docker image built: $(BINARY):$(VERSION)"
+
+## Build everything (binaries + Docker)
+release-full: release-all docker-build
+	@echo "✅ Complete release $(VERSION) built"
+
+# =============================================================================
+# Build Steps
+# =============================================================================
+
+## Build web UI (static export)
+build-web:
+	@echo "📦 Building web UI..."
+	cd $(WEB_DIR) && pnpm install --frozen-lockfile && pnpm build
+	@echo "✅ Web UI built in $(WEB_DIR)/out/"
+
+## Build Go binary with embedded web
+build-binary: GOOS ?= $(shell go env GOOS)
+build-binary: GOARCH ?= $(shell go env GOARCH)
+build-binary: CGO_ENABLED ?= 1
+build-binary: SUFFIX ?=
+build-binary:
+	@echo "🔨 Building binary ($(GOOS)/$(GOARCH), CGO=$(CGO_ENABLED))..."
+	
+	# Copy web build to embed directory
+	rm -rf $(API_DIR)/internal/router/web || true
+	mkdir -p $(API_DIR)/internal/router/web
+	cp -r $(WEB_DIR)/out/* $(API_DIR)/internal/router/web/
+	
+	# Build binary
+	cd $(API_DIR) && \
+		CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+			-ldflags="-s -w -X main.version=$(VERSION)" \
+			-o bin/$(BINARY)$(SUFFIX) \
+			./cmd/server
+	
+	@echo "✅ Binary built: $(BIN_DIR)/$(BINARY)$(SUFFIX)"
+
+## Create release archive
+package-archive: SUFFIX ?=
+package-archive:
+	@echo "📦 Creating archive..."
+	mkdir -p $(DIST_DIR)
+	cd $(BIN_DIR) && \
+		tar -czf ../../$(DIST_DIR)/$(BINARY)$(SUFFIX).tar.gz $(BINARY)$(SUFFIX) && \
+		sha256sum $(BINARY)$(SUFFIX).tar.gz > ../../$(DIST_DIR)/$(BINARY)$(SUFFIX).tar.gz.sha256
+	@echo "✅ Archive created: $(DIST_DIR)/$(BINARY)$(SUFFIX).tar.gz"
+
+# =============================================================================
+# Docker Targets
+# =============================================================================
+
+## Build Docker image
+docker-build:
+	@echo "🐳 Building Docker image..."
+	docker build \
+		-f $(API_DIR)/Dockerfile \
+		-t $(BINARY):$(VERSION) \
+		-t $(BINARY):latest \
+		.
+	@echo "✅ Docker image built: $(BINARY):$(VERSION)"
+
+## Build and push Docker image
+docker-push: REGISTRY ?= ghcr.io
+docker-push: IMAGE_NAME ?= doomedramen/lab
+docker-push:
+	@echo "🐳 Pushing Docker image to $(REGISTRY)/$(IMAGE_NAME)..."
+	docker tag $(BINARY):$(VERSION) $(REGISTRY)/$(IMAGE_NAME):$(VERSION)
+	docker tag $(BINARY):latest $(REGISTRY)/$(IMAGE_NAME):latest
+	docker push $(REGISTRY)/$(IMAGE_NAME):$(VERSION)
+	docker push $(REGISTRY)/$(IMAGE_NAME):latest
+	@echo "✅ Docker image pushed: $(REGISTRY)/$(IMAGE_NAME):$(VERSION)"
+
+## Build multi-arch Docker image
+docker-buildx: PLATFORMS ?= linux/amd64,linux/arm64
+docker-buildx:
+	@echo "🐳 Building multi-arch Docker image ($(PLATFORMS))..."
+	docker buildx build \
+		-f $(API_DIR)/Dockerfile \
+		--platform $(PLATFORMS) \
+		-t $(BINARY):$(VERSION) \
+		-t $(BINARY):latest \
+		--push \
+		.
+
+# =============================================================================
+# Release Utilities
+# =============================================================================
+
+## Generate checksums for all artifacts
+checksums:
+	@echo "🔐 Generating checksums..."
+	cd $(DIST_DIR) && sha256sum *.tar.gz *.sha256 2>/dev/null | sort -u > SHA256SUMS.txt || true
+	cat $(DIST_DIR)/SHA256SUMS.txt
+
+## Generate release notes from git changelog
+release-notes:
+	@echo "📝 Release Notes for $(VERSION)\n"
+	@echo "## Changes\n"
+	@git log --oneline --pretty=format:"- %s" $(shell git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD
+	@echo "\n\n## Contributors\n"
+	@git log --pretty=format:"%an" $(shell git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD | sort -u | sed 's/^/- @/'
+
+## List release artifacts
+list-artifacts:
+	@echo "📦 Release Artifacts for $(VERSION):\n"
+	@ls -lh $(DIST_DIR)/ 2>/dev/null || echo "No artifacts yet. Run 'make release' first."
+
+## Verify release artifacts
+verify:
+	@echo "🔍 Verifying release artifacts..."
+	@cd $(DIST_DIR) && \
+	for f in *.tar.gz; do \
+		if [ -f "$$f" ]; then \
+			echo "Verifying $$f..."; \
+			sha256sum -c "$$f.sha256" 2>/dev/null || echo "⚠️  No checksum file for $$f"; \
+		fi \
+	done
+	@echo "✅ Verification complete"
+
+## Clean build artifacts
+clean:
+	@echo "🧹 Cleaning build artifacts..."
+	rm -rf $(BIN_DIR)/*
+	rm -rf $(DIST_DIR)
+	rm -rf $(API_DIR)/internal/router/web
+	rm -rf $(WEB_DIR)/out
+	rm -rf $(WEB_DIR)/.next
+	@echo "✅ Clean complete"
+
+## Clean everything including dependencies
+clean-all: clean
+	rm -rf node_modules
+	rm -rf $(API_DIR)/node_modules
+	rm -rf $(WEB_DIR)/node_modules
+
+# =============================================================================
+# Help
+# =============================================================================
+
+help:
+	@echo "Lab Platform Release Makefile"
+	@echo ""
+	@echo "Usage: make [target] VERSION=x.y.z"
+	@echo ""
+	@echo "Release Targets:"
+	@echo "  release          Build release for current platform"
+	@echo "  release-all      Build for all platforms (linux-amd64, linux-arm64)"
+	@echo "  release-linux    Build for Linux x86_64"
+	@echo "  release-docker   Build Docker image"
+	@echo "  release-full     Build everything (binaries + Docker)"
+	@echo ""
+	@echo "Docker Targets:"
+	@echo "  docker-build     Build Docker image"
+	@echo "  docker-push      Push Docker image to registry"
+	@echo "  docker-buildx    Build multi-arch Docker image"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  checksums        Generate SHA256 checksums"
+	@echo "  release-notes    Generate release notes from git"
+	@echo "  list-artifacts   List built artifacts"
+	@echo "  verify           Verify checksums"
+	@echo "  clean            Clean build artifacts"
+	@echo "  clean-all        Clean everything"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make release VERSION=1.0.0"
+	@echo "  make release-all VERSION=1.0.0"
+	@echo "  make docker-push VERSION=1.0.0 REGISTRY=ghcr.io IMAGE_NAME=doomedramen/lab"
+	@echo "  make release-full VERSION=1.0.0"

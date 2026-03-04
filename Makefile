@@ -4,14 +4,19 @@
 # Usage:
 #   make dev             Run dev servers (API + web) in Lima VM
 #   make test            Run all tests
+#   make release         Build release (see Makefile.release)
 #   make help            Show all available commands
 
 .PHONY: dev test test-unit test-e2e \
         lima-shell lima-setup lima-stop lima-start lima-restart lima-delete \
+        release release-all release-docker \
         help
 
 # Project path inside Lima VM (virtiofs mount from lima.yaml)
 APP := /app
+
+# Include release makefile
+include Makefile.release
 
 # ── Development ────────────────────────────────────────────────────
 
@@ -65,6 +70,12 @@ help:
 	@echo "  make test-unit       Run API unit tests in Lima VM"
 	@echo "  make test-e2e        Run E2E tests in Lima VM"
 	@echo ""
+	@echo "Release:"
+	@echo "  make release         Build release for current platform"
+	@echo "  make release-all     Build for all platforms"
+	@echo "  make release-docker  Build Docker image"
+	@echo "  make docker-push     Push Docker image"
+	@echo ""
 	@echo "Lima VM:"
 	@echo "  make lima-shell      Shell into Lima VM"
 	@echo "  make lima-setup      One-time Lima VM setup"
@@ -72,3 +83,5 @@ help:
 	@echo "  make lima-start      Start Lima VM"
 	@echo "  make lima-restart    Restart Lima VM"
 	@echo "  make lima-delete     Delete Lima VM"
+	@echo ""
+	@echo "See Makefile.release for more release targets"

@@ -129,7 +129,7 @@ function VMsContent({ vms, nodes }: { vms: VM[]; nodes: Node[] | undefined }) {
                 <TableRow key={vm.id} data-testid={`vm-table-row-${vm.vmid}`}>
                   <TableCell className="font-mono text-sm" data-testid={`vm-table-vmid-${vm.vmid}`}>{vm.vmid}</TableCell>
                   <TableCell>
-                    <Link href={`/vms/${vm.vmid}`} className="flex items-center gap-2 hover:text-primary transition-colors" data-testid={`vm-table-link-${vm.vmid}`}>
+                    <Link href={`/vms/view?id=${vm.vmid}`} className="flex items-center gap-2 hover:text-primary transition-colors" data-testid={`vm-table-link-${vm.vmid}`}>
                       <Monitor className="size-4 text-muted-foreground shrink-0" />
                       <div>
                         <div className="font-medium text-foreground" data-testid={`vm-table-name-${vm.vmid}`}>{vm.name}</div>
@@ -144,7 +144,7 @@ function VMsContent({ vms, nodes }: { vms: VM[]; nodes: Node[] | undefined }) {
                   </TableCell>
                   <TableCell>
                     {node ? (
-                      <Link href={`/hosts/${node.id}`} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      <Link href={`/hosts/view?id=${node.id}`} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                         {vm.node}
                       </Link>
                     ) : (

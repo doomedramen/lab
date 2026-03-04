@@ -61,6 +61,9 @@ func Router(
 		r.Get("/health/ready", healthHandler.ServeHTTP)
 	}
 
+	// Serve static web files (embedded filesystem with SPA fallback)
+	r.Handle("/*", staticFileHandler(WebFS()))
+
 	// VNC WebSocket proxy (plain HTTP — not Connect RPC)
 	r.Handle("/ws/vnc", handler.VNCProxyHandler(vmSvc))
 

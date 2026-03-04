@@ -151,10 +151,10 @@ function ResourceTree({ searchQuery = "" }: { searchQuery?: string }) {
                 {nodeVms.map((vm) => (
                   <Link
                     key={vm.id}
-                    href={`/vms/${vm.vmid}`}
+                    href={`/vms/view?id=${vm.vmid}`}
                     className={cn(
                       "flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] transition-colors",
-                      pathname === `/vms/${vm.vmid}`
+                      pathname === `/vms/view?id=${vm.vmid}`
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
                         : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
                     )}
@@ -169,10 +169,10 @@ function ResourceTree({ searchQuery = "" }: { searchQuery?: string }) {
                 {nodeCts.map((ct) => (
                   <Link
                     key={ct.id}
-                    href={`/containers/${ct.ctid}`}
+                    href={`/containers/view?id=${ct.ctid}`}
                     className={cn(
                       "flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] transition-colors",
-                      pathname === `/containers/${ct.ctid}`
+                      pathname === `/containers/view?id=${ct.ctid}`
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
                         : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
                     )}

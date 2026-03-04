@@ -220,7 +220,7 @@ function DashboardContent({
             {nodes.map((node) => (
               <Link
                 key={node.id}
-                href={`/hosts/${node.id}`}
+                href={`/hosts/view?id=${node.id}`}
                 className="flex items-center gap-4 rounded-md border border-border bg-secondary/30 px-4 py-3 hover:bg-secondary/60 transition-colors"
               >
                 <Server className="size-5 text-muted-foreground shrink-0" />

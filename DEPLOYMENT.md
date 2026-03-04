@@ -250,7 +250,7 @@ docker run -d \
 
 ## Docker Compose Deployment
 
-For a simpler, containerized deployment:
+Single container deployment with embedded web UI:
 
 ```bash
 # Clone repository
@@ -259,11 +259,9 @@ cd lab
 
 # Set environment variables
 export JWT_SECRET=$(openssl rand -base64 32)
-export NEXT_PUBLIC_API_URL=http://localhost:8080
 
-# Build and start
-docker compose build
-docker compose up -d
+# Build and start (single container)
+docker compose up -d --build
 
 # Check status
 docker compose ps
@@ -272,7 +270,7 @@ docker compose ps
 docker compose logs -f
 ```
 
-Access the web UI at http://localhost:3000.
+**Access:** http://localhost:8080
 
 **Note:** Docker deployment requires the host to have libvirt installed and the Docker daemon configured to access the libvirt socket.
 

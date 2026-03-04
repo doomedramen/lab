@@ -1,8 +1,8 @@
 "use client"
 
-import { use, useState } from "react"
+import { useState, Suspense } from "react"
 import dynamic from "next/dynamic"
-import { notFound, useRouter } from "next/navigation"
+import { notFound, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { StatusBadge } from "@/components/lab-shared"
 import { Shimmer } from "@/components/shimmer"
@@ -402,8 +402,10 @@ function StackDetailContent({ stack }: StackDetailContentProps) {
   )
 }
 
-export default function StackDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+// Main content component that uses search params
+function StackDetailView() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id") || "";
   const { data: stack, isLoading, error, refetch } = useStack(id)
 
   if (error) {
@@ -421,4 +423,13 @@ export default function StackDetailPage({ params }: { params: Promise<{ id: stri
       <StackDetailContent stack={stack || templateStack} />
     </Shimmer>
   )
+}
+
+// Default export with Suspense boundary for static export compatibility
+export default function StackViewPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <StackDetailView />
+    </Suspense>
+  );
 }

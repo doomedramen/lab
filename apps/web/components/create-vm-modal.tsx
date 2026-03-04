@@ -91,7 +91,7 @@ export function CreateVMModal({ nodes, trigger }: CreateVMModalProps) {
     onCreateSuccess: (res) => {
       setOpen(false)
       if (res.vm?.vmid) {
-        router.push(`/vms/${res.vm.vmid}`)
+        router.push(`/vms/view?id=${res.vm.vmid}`)
       } else {
         resetForm()
       }

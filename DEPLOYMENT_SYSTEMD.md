@@ -25,27 +25,34 @@ The systemd deployment approach provides:
 - **System integration** - Logging via journald, automatic startup
 - **Security hardening** - Sandboxed services with minimal privileges
 - **Production ready** - Restart policies, health checks, resource limits
+- **No Node.js runtime** - Web UI is pre-built static files
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        User Browser                          │
-│                      (port 3000)                             │
+│                      (port 8080)                             │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    systemd: lab-web.service                  │
-│                    Node.js (Next.js)                         │
-│                    Port: 3000                                │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    systemd: lab-api.service                  │
+│                    systemd: lab.service                      │
 │                    Go HTTP Server                            │
 │                    Port: 8080                                │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  Embedded Static Files (go:embed)                      │ │
+│  │  - HTML, CSS, JS (pre-built)                           │ │
+│  │  - Images, fonts, assets                               │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  API Server (Connect RPC + WebSocket)                  │ │
+│  │  - /lab.v1/*        → RPC handlers                     │ │
+│  │  - /ws/*            → WebSocket proxies                │ │
+│  │  - /tus/*           → File uploads                     │ │
+│  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -53,12 +60,9 @@ The systemd deployment approach provides:
 │                    libvirtd.service                          │
 │                    QEMU/KVM, LXC                             │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    VMs and Containers                        │
-└─────────────────────────────────────────────────────────────┘
 ```
+
+**Key benefit:** The web UI is compiled to pure static HTML/CSS/JS during build - no Node.js runtime required. Single binary serves everything on port 8080.
 
 ---
 
@@ -75,13 +79,17 @@ The systemd deployment approach provides:
 
 ### Required Dependencies
 
+#### Runtime (Production)
 - **libvirt** (0.9.10+)
 - **QEMU** (for VM emulation)
 - **KVM kernel module** (for hardware acceleration)
-- **Node.js 20+** (for web UI)
-- **pnpm** (for building)
-- **Go 1.23+** (for building API, optional if using pre-built binary)
+- **nginx** or **caddy** (for serving static web files)
 - **Docker** (optional, for container support)
+
+#### Build-Time (Only if building from source)
+- **Node.js 20+** (for building web UI)
+- **pnpm** (for installing dependencies)
+- **Go 1.23+** (for building API, optional if using pre-built binary)
 
 ---
 
@@ -114,13 +122,13 @@ The script will:
 
 ```bash
 # Check service status
-systemctl status lab-api lab-web
+systemctl status lab
 
 # Check API health
 curl http://localhost:8080/health
 
 # Access web UI
-# Open http://<server-ip>:3000 in your browser
+# Open http://<server-ip>:8080 in your browser
 ```
 
 ---
@@ -210,7 +218,7 @@ sudo chown -R lab:libvirt /opt/lab
 sudo chown -R lab:libvirt /var/lib/lab
 ```
 
-### 4. Build Application
+### 4. Build Application (Single Binary)
 
 ```bash
 # Clone repository
@@ -218,31 +226,20 @@ cd /opt/lab
 sudo git clone https://github.com/doomedramen/lab.git .
 sudo chown -R lab:libvirt .
 
-# Install pnpm
+# Install build dependencies
 sudo npm install -g pnpm
 
-# Install dependencies
-sudo -u lab pnpm install --frozen-lockfile
-
-# Build web UI
-sudo -u lab pnpm --filter web build
-
-# Build API
+# Build single binary (includes web UI)
 cd /opt/lab/apps/api
-sudo -u lab make release VERSION=1.0.0
+sudo -u lab ./build.sh 1.0.0
 
-# Copy binaries
+# Copy binary to install directory
 sudo mkdir -p /opt/lab/api
 sudo cp /opt/lab/apps/api/bin/lab-server /opt/lab/api/
 sudo chown lab:libvirt /opt/lab/api/lab-server
-
-# Copy web build
-sudo mkdir -p /opt/lab/web
-sudo cp -r /opt/lab/apps/web/.next/standalone/* /opt/lab/web/
-sudo cp -r /opt/lab/apps/web/.next/static /opt/lab/web/.next/
-sudo cp -r /opt/lab/apps/web/public /opt/lab/web/
-sudo chown -R lab:libvirt /opt/lab/web
 ```
+
+**Note:** The single binary approach embeds the web UI directly into the Go binary. No separate web server or Node.js runtime is needed.
 
 ### 5. Configure Application
 
@@ -261,14 +258,6 @@ LAB_LOGGING_LEVEL=info
 LAB_LOGGING_FORMAT=text
 EOF
 
-# Create web environment file
-sudo tee /etc/lab/lab-web.env > /dev/null << EOF
-NODE_ENV=production
-PORT=3000
-HOSTNAME=0.0.0.0
-NEXT_PUBLIC_API_URL=http://localhost:8080
-EOF
-
 # Copy configuration
 sudo cp /opt/lab/apps/api/config.example.yaml /etc/lab/config.yaml
 
@@ -277,20 +266,22 @@ sudo sed -i 's/env: "development"/env: "production"/' /etc/lab/config.yaml
 sudo sed -i 's|uri: "qemu:///session"|uri: "qemu:///system"|' /etc/lab/config.yaml
 ```
 
+**Note:** No web environment file needed - the web UI is embedded in the API binary!
+
 ### 6. Install Systemd Services
 
 ```bash
-# Copy service files
-sudo cp /opt/lab/deploy/systemd/lab-api.service /etc/systemd/system/
-sudo cp /opt/lab/deploy/systemd/lab-web.service /etc/systemd/system/
+# Copy service file (single service - web is embedded)
+sudo cp /opt/lab/deploy/systemd/lab.service /etc/systemd/system/
 
 # Reload systemd
 sudo systemctl daemon-reload
 
-# Enable services
-sudo systemctl enable lab-api
-sudo systemctl enable lab-web
+# Enable service
+sudo systemctl enable lab
 ```
+
+**Note:** Only one service needed! The web UI is served by the API binary.
 
 ### 7. Start Services
 
@@ -298,13 +289,16 @@ sudo systemctl enable lab-web
 # Start libvirt first
 sudo systemctl enable --now libvirtd
 
-# Start Lab services
+# Start Lab service (includes web UI)
 sudo systemctl start lab-api
-sudo systemctl start lab-web
 
 # Check status
-sudo systemctl status lab-api lab-web
+sudo systemctl status lab-api
 ```
+
+**Access the application:**
+- Web UI: http://localhost:8080/
+- API: http://localhost:8080/lab.v1/
 
 ---
 
@@ -324,18 +318,11 @@ sudo systemctl status lab-api lab-web
 | `LAB_LOGGING_LEVEL` | Log level | `info` |
 | `LAB_LOGGING_FORMAT` | Log format | `text` |
 
-#### Web Environment (`/etc/lab/lab-web.env`)
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Node environment | `production` |
-| `PORT` | Server port | `3000` |
-| `HOSTNAME` | Bind address | `0.0.0.0` |
-| `NEXT_PUBLIC_API_URL` | API endpoint URL | `http://localhost:8080` |
-
 ### Configuration File (`/etc/lab/config.yaml`)
 
 See [`config.production.yaml`](./config.production.yaml) for a complete example with all options documented.
+
+**Note:** No web environment file needed - the web UI is embedded in the API binary!
 
 Key sections:
 - `server` - Port and environment settings
@@ -353,49 +340,38 @@ Key sections:
 
 ```bash
 # Check status
-systemctl status lab-api lab-web
+systemctl status lab
 
-# Start services
-systemctl start lab-api
-systemctl start lab-web
+# Start service
+systemctl start lab
 
-# Stop services
-systemctl stop lab-api
-systemctl stop lab-web
+# Stop service
+systemctl stop lab
 
-# Restart services
-systemctl restart lab-api
-systemctl restart lab-web
-
-# Reload configuration (sends SIGHUP)
-systemctl reload lab-api
+# Restart service
+systemctl restart lab
 
 # Enable auto-start on boot
-systemctl enable lab-api
-systemctl enable lab-web
+systemctl enable lab
 
 # Disable auto-start
-systemctl disable lab-api
-systemctl disable lab-web
+systemctl disable lab
 ```
 
 ### Viewing Logs
 
 ```bash
 # View all logs
-journalctl -u lab-api -u lab-web
-
-# Follow logs in real-time
-journalctl -u lab-api -f
+journalctl -u lab -f
 
 # View last 100 lines
-journalctl -u lab-api -n 100
+journalctl -u lab -n 100
 
 # View logs from specific time
-journalctl -u lab-api --since "2024-01-01 00:00:00"
+journalctl -u lab --since "2024-01-01 00:00:00"
 
 # View JSON format (for parsing)
-journalctl -u lab-api -o json
+journalctl -u lab -o json
 ```
 
 ### Health Checks
@@ -407,8 +383,8 @@ curl http://localhost:8080/health
 # Full readiness check (includes libvirt)
 curl http://localhost:8080/health/ready
 
-# Web UI check
-curl http://localhost:3000
+# Web UI check (served by same binary)
+curl http://localhost:8080/
 ```
 
 ---
@@ -419,13 +395,13 @@ curl http://localhost:3000
 
 ```bash
 # Check detailed status
-systemctl status lab-api --no-pager
+systemctl status lab --no-pager
 
 # Check for dependency issues
-systemctl list-dependencies lab-api
+systemctl list-dependencies lab
 
 # Test configuration
-journalctl -u lab-api -n 50
+journalctl -u lab -n 50
 ```
 
 ### libvirt Connection Issues
@@ -479,14 +455,12 @@ ls -la /dev/kvm
 ```bash
 # Check what's using the port
 sudo ss -tlnp | grep :8080
-sudo ss -tlnp | grep :3000
 
-# Change port in environment files
+# Change port in environment file
 sudo nano /etc/lab/lab-api.env  # Change LAB_SERVER_PORT
-sudo nano /etc/lab/lab-web.env  # Change PORT
 
-# Restart services
-sudo systemctl restart lab-api lab-web
+# Restart service
+sudo systemctl restart lab
 ```
 
 ---
@@ -525,8 +499,8 @@ sudo tar -czf /backup/vm-images-$(date +%Y%m%d).tar.gz \
 ### Restore
 
 ```bash
-# Stop services
-sudo systemctl stop lab-api lab-web
+# Stop service
+sudo systemctl stop lab
 
 # Restore database
 sudo tar -xzf /backup/lab-db-YYYYMMDD.tar.gz -C /
@@ -537,8 +511,8 @@ sudo tar -xzf /backup/lab-config-YYYYMMDD.tar.gz -C /
 # Fix permissions
 sudo chown -R lab:libvirt /var/lib/lab
 
-# Start services
-sudo systemctl start lab-api lab-web
+# Start service
+sudo systemctl start lab
 ```
 
 ---
@@ -551,14 +525,14 @@ sudo systemctl start lab-api lab-web
 # Run installation script with new version
 sudo ./install.sh 1.1.0
 
-# Services will be automatically restarted
+# Service will be automatically restarted
 ```
 
 ### Manual Upgrade
 
 ```bash
-# Stop services
-sudo systemctl stop lab-api lab-web
+# Stop service
+sudo systemctl stop lab
 
 # Navigate to installation
 cd /opt/lab
@@ -569,28 +543,18 @@ sudo git pull
 # Checkout specific version
 sudo git checkout v1.1.0
 
-# Rebuild
-sudo -u lab pnpm install --frozen-lockfile
-sudo -u lab pnpm --filter web build
-
+# Rebuild single binary (includes web UI)
 cd /opt/lab/apps/api
-sudo -u lab make release VERSION=1.1.0
+sudo -u lab ./build.sh 1.1.0
 
 # Update binary
 sudo cp /opt/lab/apps/api/bin/lab-server /opt/lab/api/
 
-# Update web files
-sudo rm -rf /opt/lab/web/*
-sudo cp -r /opt/lab/apps/web/.next/standalone/* /opt/lab/web/
-sudo cp -r /opt/lab/apps/web/.next/static /opt/lab/web/.next/
-sudo cp -r /opt/lab/apps/web/public /opt/lab/web/
-sudo chown -R lab:libvirt /opt/lab/web
-
-# Start services
-sudo systemctl start lab-api lab-web
+# Start service
+sudo systemctl start lab
 
 # Check status
-systemctl status lab-api lab-web
+systemctl status lab
 ```
 
 ---
@@ -610,14 +574,13 @@ sudo ./uninstall.sh --keep-data
 ### Manual Uninstall
 
 ```bash
-# Stop and disable services
-sudo systemctl stop lab-api lab-web
-sudo systemctl disable lab-api lab-web
+# Stop and disable service
+sudo systemctl stop lab
+sudo systemctl disable lab
+sudo systemctl daemon-reload
 
 # Remove service files
-sudo rm /etc/systemd/system/lab-api.service
-sudo rm /etc/systemd/system/lab-web.service
-sudo systemctl daemon-reload
+sudo rm /etc/systemd/system/lab.service 2>/dev/null || true
 
 # Remove application
 sudo rm -rf /opt/lab
@@ -639,19 +602,16 @@ sudo userdel lab
 ### Firewall Configuration
 
 ```bash
-# Allow web UI port
-sudo ufw allow 3000/tcp
-
-# Allow API port (if accessing directly)
+# Allow lab port (API + Web UI)
 sudo ufw allow 8080/tcp
 
-# Or only allow from localhost (recommended)
+# Or only allow from localhost (if using reverse proxy)
 sudo ufw allow from 127.0.0.1 to any port 8080
 ```
 
 ### TLS/SSL Setup
 
-For production, use a reverse proxy like nginx or Caddy:
+The single binary serves both HTTP and can be placed behind a reverse proxy for TLS:
 
 ```bash
 # Install Caddy
@@ -661,10 +621,10 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt update
 sudo apt install caddy
 
-# Configure Caddy
+# Configure Caddy (reverse proxy to lab)
 sudo tee /etc/caddy/Caddyfile > /dev/null << EOF
 lab.example.com {
-    reverse_proxy localhost:3000
+    reverse_proxy localhost:8080
 }
 EOF
 

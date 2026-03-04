@@ -1,0 +1,337 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 1.0.0)"
+        required: false
+        default: ""
+      build_linux:
+        description: "Build Linux binary (glibc)"
+        type: boolean
+        required: false
+        default: true
+      build_docker:
+        description: "Build Docker image"
+        type: boolean
+        required: false
+        default: true
+      docker_registry:
+        description: "Docker registry (leave empty for Docker Hub)"
+        required: false
+        default: ""
+      publish_release:
+        description: "Publish GitHub Release"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ${{ inputs.docker_registry != '' && inputs.docker_registry || 'ghcr.io' }}
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-linux:
+    name: linux-amd64
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_linux == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libvirt and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            pkg-config \
+            gcc \
+            libc6-dev \
+            qemu-system-x86 \
+            libvirt-daemon-system
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+          cache: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Install proto tools
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Generate proto code
+        run: |
+          cd apps/api
+          make proto
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=dev-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build single binary (API + embedded web)
+        env:
+          CGO_ENABLED: 1
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd apps/api
+          
+          # Build web UI first
+          cd ../web
+          pnpm install --frozen-lockfile
+          pnpm build
+          
+          # Copy web build to embed directory
+          cd ../api
+          rm -rf internal/router/web || true
+          mkdir -p internal/router/web
+          cp -r ../web/out/* internal/router/web/
+          
+          # Build Go binary with embedded web
+          go build \
+            -ldflags="-s -w -X main.version=${VERSION}" \
+            -o lab-server-linux-amd64 \
+            ./cmd/server
+
+      - name: Create release archive
+        run: |
+          cd apps/api
+          tar -czf lab-server-linux-amd64.tar.gz lab-server-linux-amd64
+          sha256sum lab-server-linux-amd64 > lab-server-linux-amd64.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64
+          path: |
+            apps/api/lab-server-linux-amd64
+            apps/api/lab-server-linux-amd64.tar.gz
+            apps/api/lab-server-linux-amd64.tar.gz.sha256
+          retention-days: 1
+
+  build-docker:
+    name: docker
+    if: (github.event_name != 'workflow_dispatch' || github.event.inputs.build_docker == 'true') && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
+    runs-on: ubuntu-24.04
+    needs: build-linux
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=dev-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          
+          # Create tags
+          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+          
+          # Add latest tag for release builds
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+          
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.meta.outputs.tags }}
+          format: spdx-json
+          output-file: lab-server-${{ steps.version.outputs.version }}.sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: lab-server-*.sbom.spdx.json
+          retention-days: 1
+
+  release:
+    name: publish
+    runs-on: ubuntu-24.04
+    if: >-
+      always() && !failure() && !cancelled() &&
+      (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_release == 'true')
+    needs:
+      - build-linux
+      - build-docker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: dist
+        continue-on-error: true
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=dev-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz *.sha256 2>/dev/null | sort -u > SHA256SUMS.txt || true
+          cat SHA256SUMS.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Lab v${{ steps.version.outputs.version }}
+          body: |
+            ## Lab Virtualization Platform v${{ steps.version.outputs.version }}
+
+            A modern, lightweight virtualization management platform for home servers.
+
+            ### 📦 Downloads
+
+            #### Single Binary (Linux x86_64)
+            - **lab-server-linux-amd64.tar.gz** - Pre-built binary with embedded web UI
+            - **SHA256**: See `SHA256SUMS.txt`
+
+            #### Docker Image
+            ```bash
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ```
+
+            ### 🚀 Quick Start
+
+            #### Using Binary
+            ```bash
+            # Download and extract
+            tar -xzf lab-server-linux-amd64.tar.gz
+            
+            # Run
+            sudo ./lab-server-linux-amd64
+            ```
+
+            #### Using Docker
+            ```bash
+            docker run -d \
+              --name lab \
+              --privileged \
+              --network host \
+              -v /var/run/libvirt:/var/run/libvirt \
+              -v lab-data:/var/lib/lab \
+              -e JWT_SECRET=$(openssl rand -base64 32) \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ```
+
+            ### 📋 System Requirements
+            - **OS**: Linux (Ubuntu 22.04+, Debian 12+, Fedora 39+)
+            - **CPU**: x86_64 with virtualization support (Intel VT-x / AMD-V)
+            - **RAM**: 4GB minimum (8GB+ recommended)
+            - **Dependencies**: libvirt, QEMU/KVM
+
+            ### 📖 Documentation
+            - [Deployment Guide](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT.md)
+            - [Systemd Deployment](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT_SYSTEMD.md)
+            - [Architecture](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT_ARCHITECTURE.md)
+
+            ### 🔧 Configuration
+            See [config.example.yaml](https://github.com/${{ github.repository }}/blob/main/apps/api/config.example.yaml) for all options.
+
+            ### 🐛 Known Issues
+            None for this release.
+
+            ---
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.version.outputs.previous_version }}...v${{ steps.version.outputs.version }}
+          files: |
+            dist/*
+          generate_release_notes: false
+          make_latest: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          prerelease: ${{ contains(github.ref, '-rc.') || contains(github.ref, '-beta.') || contains(github.ref, '-alpha.') }}
+
+      - name: Post-release message
+        run: |
+          echo "✅ Release v${{ steps.version.outputs.version }} published successfully!"
+          echo ""
+          echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
+          echo "🐳 Docker: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"

@@ -1,7 +1,7 @@
 "use client"
 
-import { use } from "react"
-import { notFound } from "next/navigation"
+import { Suspense } from "react"
+import { notFound, useSearchParams } from "next/navigation"
 import { StatusBadge, ResourceBar, TagList } from "@/components/lab-shared"
 import { ResourceMetricCard } from "@/components/resource-metric-card"
 import { ConfigList } from "@/components/config-list"
@@ -236,8 +236,10 @@ function ContainerDetailContent({ ct, mutationProps }: { ct: Container; mutation
   )
 }
 
-export default function ContainerDetailPage({ params }: { params: Promise<{ ctid: string }> }) {
-  const { ctid } = use(params)
+// Main content component that uses search params
+function ContainerDetailView() {
+  const searchParams = useSearchParams();
+  const ctid = searchParams.get("id") || "";
   const { data: ct, isLoading, error, refetch } = useContainer(ctid)
   const { startContainer, stopContainer, rebootContainer, isStarting, isStopping, isRebooting } = useContainerMutations()
 
@@ -273,4 +275,13 @@ export default function ContainerDetailPage({ params }: { params: Promise<{ ctid
       />
     </Shimmer>
   )
+}
+
+// Default export with Suspense boundary for static export compatibility
+export default function ContainerViewPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <ContainerDetailView />
+    </Suspense>
+  );
 }

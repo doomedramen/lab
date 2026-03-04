@@ -77,7 +77,7 @@ function StacksContent({ stacks }: { stacks: Stack[] }) {
           const runningContainers = stack.containers.filter((c) => c.state === "running").length
           const totalContainers = stack.containers.length
           return (
-            <Link key={stack.id} href={`/stacks/${stack.id}`} data-testid={`stack-card-${stack.id}`}>
+            <Link key={stack.id} href={`/stacks/view?id=${stack.id}`} data-testid={`stack-card-${stack.id}`}>
               <Card className="hover:bg-secondary/20 transition-colors cursor-pointer h-full">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">

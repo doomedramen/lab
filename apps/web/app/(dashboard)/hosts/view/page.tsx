@@ -1,7 +1,7 @@
 "use client"
 
-import { use, useMemo } from "react"
-import { notFound } from "next/navigation"
+import { useMemo, Suspense } from "react"
+import { notFound, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { StatusBadge, ResourceBar, TagList } from "@/components/lab-shared"
 import { ResourceMetricCard } from "@/components/resource-metric-card"
@@ -199,7 +199,7 @@ function HostDetailContent({ node, nodeVms, nodeCts, cpuChartData, memoryChartDa
                   <TableRow key={vm.id}>
                     <TableCell className="font-mono text-sm">{vm.vmid}</TableCell>
                     <TableCell>
-                      <Link href={`/vms/${vm.vmid}`} className="text-foreground hover:text-primary transition-colors font-medium">
+                      <Link href={`/vms/view?id=${vm.vmid}`} className="text-foreground hover:text-primary transition-colors font-medium">
                         {vm.name}
                       </Link>
                     </TableCell>
@@ -233,7 +233,7 @@ function HostDetailContent({ node, nodeVms, nodeCts, cpuChartData, memoryChartDa
                   <TableRow key={ct.id}>
                     <TableCell className="font-mono text-sm">{ct.ctid}</TableCell>
                     <TableCell>
-                      <Link href={`/containers/${ct.ctid}`} className="text-foreground hover:text-primary transition-colors font-medium">
+                      <Link href={`/containers/view?id=${ct.ctid}`} className="text-foreground hover:text-primary transition-colors font-medium">
                         {ct.name}
                       </Link>
                     </TableCell>
@@ -281,8 +281,10 @@ function HostDetailContent({ node, nodeVms, nodeCts, cpuChartData, memoryChartDa
   )
 }
 
-export default function HostDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+// Main content component that uses search params
+function HostDetailView() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id") || "";
   const { data: node, isLoading, error, refetch } = useNode(id)
   const { data: allVms } = useVMs()
   const { data: allContainers } = useContainers()
@@ -362,4 +364,13 @@ export default function HostDetailPage({ params }: { params: Promise<{ id: strin
       />
     </Shimmer>
   )
+}
+
+// Default export with Suspense boundary for static export compatibility
+export default function HostViewPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <HostDetailView />
+    </Suspense>
+  );
 }

@@ -84,27 +84,30 @@ confirm() {
 
 stop_services() {
     log_info "Stopping services..."
-    
-    systemctl stop lab-web 2>/dev/null || true
+
+    systemctl stop lab 2>/dev/null || true
     systemctl stop lab-api 2>/dev/null || true
-    
+    systemctl stop lab-web 2>/dev/null || true
+
     log_success "Services stopped"
 }
 
 disable_services() {
     log_info "Disabling systemd services..."
-    
+
+    systemctl disable lab.service 2>/dev/null || true
     systemctl disable lab-api.service 2>/dev/null || true
     systemctl disable lab-web.service 2>/dev/null || true
-    
+
     # Remove service files
-    rm -f /etc/systemd/system/lab-api.service
-    rm -f /etc/systemd/system/lab-web.service
-    
+    rm -f /etc/systemd/system/lab.service 2>/dev/null || true
+    rm -f /etc/systemd/system/lab-api.service 2>/dev/null || true
+    rm -f /etc/systemd/system/lab-web.service 2>/dev/null || true
+
     # Reload systemd
     systemctl daemon-reload
     systemctl reset-failed 2>/dev/null || true
-    
+
     log_success "Services disabled and removed"
 }
 
@@ -172,7 +175,7 @@ print_summary() {
     echo "================================================================="
     echo ""
     echo "The following were removed:"
-    echo "  - Systemd services (lab-api, lab-web)"
+    echo "  - Systemd service (lab)"
     echo "  - Application files ($INSTALL_DIR)"
     echo "  - Configuration files ($CONFIG_DIR)"
     if [[ "$KEEP_DATA" != "true" ]]; then

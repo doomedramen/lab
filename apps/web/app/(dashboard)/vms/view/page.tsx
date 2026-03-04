@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -759,12 +759,10 @@ function VMDetailContent({
   );
 }
 
-export default function VMDetailPage({
-  params,
-}: {
-  params: Promise<{ vmid: string }>;
-}) {
-  const { vmid } = use(params);
+// Main content component that uses search params
+function VMDetailView() {
+  const searchParams = useSearchParams();
+  const vmid = searchParams.get("id") || "";
   const router = useRouter();
   const { data: vm, isLoading, error, refetch } = useVM(vmid);
 
@@ -1981,5 +1979,14 @@ function DisksTab({ vmid, vmStatus }: { vmid: number; vmStatus: string }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Default export with Suspense boundary for static export compatibility
+export default function VMViewPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <VMDetailView />
+    </Suspense>
   );
 }

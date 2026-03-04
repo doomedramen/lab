@@ -250,30 +250,19 @@ build_application() {
         }
     fi
     
-    # Install dependencies
-    log_info "Installing dependencies with pnpm..."
-    pnpm install --frozen-lockfile
+    # Install pnpm (build-time only)
+    log_info "Installing pnpm..."
+    npm install -g pnpm
     
-    # Build web UI
-    log_info "Building web UI..."
-    pnpm --filter web build
-    
-    # Build API
-    log_info "Building API server..."
+    # Build single binary (includes embedded web UI)
+    log_info "Building single binary (API + web UI)..."
     cd "$INSTALL_DIR/apps/api"
-    make release VERSION="${VERSION:-dev}"
+    sudo -u lab ./build.sh "${VERSION:-dev}"
     
     # Copy binary to install directory
     mkdir -p "$INSTALL_DIR/api"
     cp "$INSTALL_DIR/apps/api/bin/lab-server" "$INSTALL_DIR/api/"
     chown "$APP_USER:$APP_GROUP" "$INSTALL_DIR/api/lab-server"
-    
-    # Copy web build
-    mkdir -p "$INSTALL_DIR/web"
-    cp -r "$INSTALL_DIR/apps/web/.next/standalone"/* "$INSTALL_DIR/web/"
-    cp -r "$INSTALL_DIR/apps/web/.next/static" "$INSTALL_DIR/web/.next/"
-    cp -r "$INSTALL_DIR/apps/web/public" "$INSTALL_DIR/web/"
-    chown -R "$APP_USER:$APP_GROUP" "$INSTALL_DIR/web"
     
     cd "$INSTALL_DIR"
     log_success "Application built"
@@ -286,9 +275,8 @@ install_config() {
     if [[ ! -f "$CONFIG_DIR/lab-api.env" ]]; then
         JWT_SECRET=$(openssl rand -base64 32)
         
-        # Copy environment files
+        # Copy environment file
         cp "$INSTALL_DIR/deploy/systemd/lab-api.env" "$CONFIG_DIR/"
-        cp "$INSTALL_DIR/deploy/systemd/lab-web.env" "$CONFIG_DIR/"
         
         # Update JWT secret in config
         sed -i "s/change-me-in-production/$JWT_SECRET/" "$CONFIG_DIR/lab-api.env"
@@ -313,18 +301,16 @@ install_config() {
 install_systemd_services() {
     log_info "Installing systemd services..."
     
-    # Copy service files
-    cp "$INSTALL_DIR/deploy/systemd/lab-api.service" "$SYSTEMD_DIR/"
-    cp "$INSTALL_DIR/deploy/systemd/lab-web.service" "$SYSTEMD_DIR/"
+    # Copy service file
+    cp "$INSTALL_DIR/deploy/systemd/lab.service" "$SYSTEMD_DIR/"
     
     # Reload systemd
     systemctl daemon-reload
     
-    # Enable services
-    systemctl enable lab-api.service
-    systemctl enable lab-web.service
+    # Enable service
+    systemctl enable lab.service
     
-    log_success "Systemd services installed and enabled"
+    log_success "Systemd service installed and enabled"
 }
 
 configure_libvirt() {
@@ -350,29 +336,16 @@ configure_libvirt() {
 start_services() {
     log_info "Starting services..."
     
-    # Start API service
-    systemctl start lab-api
+    # Start Lab service (includes web UI)
+    systemctl start lab
     sleep 2
     
-    # Check API health
-    if systemctl is-active --quiet lab-api; then
-        log_success "lab-api started"
+    # Check service health
+    if systemctl is-active --quiet lab; then
+        log_success "lab started (includes web UI)"
     else
-        log_error "Failed to start lab-api"
-        systemctl status lab-api --no-pager
-        exit 1
-    fi
-    
-    # Start web service
-    systemctl start lab-web
-    sleep 2
-    
-    # Check web service
-    if systemctl is-active --quiet lab-web; then
-        log_success "lab-web started"
-    else
-        log_error "Failed to start lab-web"
-        systemctl status lab-web --no-pager
+        log_error "Failed to start lab"
+        systemctl status lab --no-pager
         exit 1
     fi
 }
@@ -383,23 +356,20 @@ print_summary() {
     echo -e "${GREEN}Installation completed successfully!${NC}"
     echo "================================================================="
     echo ""
-    echo "Services:"
-    echo "  - lab-api:  http://localhost:8080"
-    echo "  - lab-web:  http://localhost:3000"
+    echo "Service:"
+    echo "  - lab:  http://localhost:8080 (API + Web UI)"
     echo ""
     echo "Configuration:"
     echo "  - Config:   $CONFIG_DIR/config.yaml"
-    echo "  - Env API:  $CONFIG_DIR/lab-api.env"
-    echo "  - Env Web:  $CONFIG_DIR/lab-web.env"
+    echo "  - Env:      $CONFIG_DIR/lab-api.env"
     echo "  - Data:     $DATA_DIR"
     echo ""
     echo "Useful commands:"
-    echo "  systemctl status lab-api lab-web"
-    echo "  journalctl -u lab-api -f"
-    echo "  journalctl -u lab-web -f"
-    echo "  systemctl restart lab-api"
+    echo "  systemctl status lab"
+    echo "  journalctl -u lab -f"
+    echo "  systemctl restart lab"
     echo ""
-    echo "Open http://$(hostname -I | awk '{print $1}'):3000 in your browser"
+    echo "Open http://$(hostname -I | awk '{print $1}'):8080 in your browser"
     echo "================================================================="
 }
 

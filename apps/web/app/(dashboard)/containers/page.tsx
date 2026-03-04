@@ -103,7 +103,7 @@ function ContainersContent({ containers }: { containers: Container[] }) {
               <TableRow key={ct.id}>
                 <TableCell className="font-mono text-sm">{ct.ctid}</TableCell>
                 <TableCell>
-                  <Link href={`/containers/${ct.ctid}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+                  <Link href={`/containers/view?id=${ct.ctid}`} className="flex items-center gap-2 hover:text-primary transition-colors">
                     <Box className="size-4 text-muted-foreground shrink-0" />
                     <div>
                       <div className="font-medium text-foreground">{ct.name}</div>
