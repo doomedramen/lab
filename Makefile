@@ -8,10 +8,9 @@
 #   make help            Show all available commands
 
 .PHONY: dev test test-unit test-e2e \
-        lima-shell lima-setup lima-stop lima-start lima-restart lima-delete \
-        release release-all release-docker \
-        help
-
+	lima-shell lima-setup lima-stop lima-start lima-restart lima-delete \
+	release release-all \
+	help
 # Project path inside Lima VM (virtiofs mount from lima.yaml)
 APP := /app
 
@@ -73,8 +72,6 @@ help:
 	@echo "Release:"
 	@echo "  make release         Build release for current platform"
 	@echo "  make release-all     Build for all platforms"
-	@echo "  make release-docker  Build Docker image"
-	@echo "  make docker-push     Push Docker image"
 	@echo ""
 	@echo "Lima VM:"
 	@echo "  make lima-shell      Shell into Lima VM"

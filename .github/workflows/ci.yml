@@ -257,30 +257,3 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
-
-  docker:
-    name: Docker Build
-    runs-on: ubuntu-24.04
-    needs: build
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: false
-          load: true
-          tags: lab:test-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Test Docker image
-        run: |
-          docker run --rm lab:test-${{ github.sha }} --help || true
-          echo "✅ Docker image built successfully"

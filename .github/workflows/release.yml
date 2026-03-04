@@ -15,15 +15,6 @@ on:
         type: boolean
         required: false
         default: true
-      build_docker:
-        description: "Build Docker image"
-        type: boolean
-        required: false
-        default: true
-      docker_registry:
-        description: "Docker registry (leave empty for Docker Hub)"
-        required: false
-        default: ""
       publish_release:
         description: "Publish GitHub Release"
         type: boolean
@@ -43,10 +34,6 @@ concurrency:
 permissions:
   contents: write
   packages: write
-
-env:
-  REGISTRY: ${{ inputs.docker_registry != '' && inputs.docker_registry || (github.event_name == 'workflow_run' && 'ghcr.io') || 'ghcr.io' }}
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   trigger-check:
@@ -164,80 +151,6 @@ jobs:
             apps/api/lab-server-linux-amd64.tar.gz.sha256
           retention-days: 1
 
-  build-docker:
-    name: docker
-    if: github.event_name == 'workflow_run' || (github.event_name != 'workflow_dispatch' || github.event.inputs.build_docker == 'true') && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
-    runs-on: ubuntu-24.04
-    needs: build-linux
-    outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Determine version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          elif [ -f VERSION ]; then
-            echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
-          else
-            echo "version=dev-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          
-          # Create tags
-          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
-          
-          # Add latest tag for release builds
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          fi
-          
-          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
-
-      - name: Generate SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          image: ${{ steps.meta.outputs.tags }}
-          format: spdx-json
-          output-file: lab-server-${{ steps.version.outputs.version }}.sbom.spdx.json
-
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: lab-server-*.sbom.spdx.json
-          retention-days: 1
-
   release:
     name: publish
     runs-on: ubuntu-24.04
@@ -247,7 +160,6 @@ jobs:
     needs:
       - trigger-check
       - build-linux
-      - build-docker
     steps:
       - uses: actions/checkout@v4
 
@@ -299,11 +211,6 @@ jobs:
             - **lab-server-linux-amd64.tar.gz** - Pre-built binary with embedded web UI
             - **SHA256**: See `SHA256SUMS.txt`
 
-            #### Docker Image
-            ```bash
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ```
-
             ### 🚀 Quick Start
 
             #### Using Binary
@@ -313,18 +220,6 @@ jobs:
             
             # Run
             sudo ./lab-server-linux-amd64
-            ```
-
-            #### Using Docker
-            ```bash
-            docker run -d \
-              --name lab \
-              --privileged \
-              --network host \
-              -v /var/run/libvirt:/var/run/libvirt \
-              -v lab-data:/var/lib/lab \
-              -e JWT_SECRET=$(openssl rand -base64 32) \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ```
 
             ### 📋 System Requirements
@@ -357,4 +252,3 @@ jobs:
           echo "✅ Release v${{ steps.version.outputs.version }} published successfully!"
           echo ""
           echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
-          echo "🐳 Docker: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
