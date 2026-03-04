@@ -64,7 +64,7 @@ export default async function globalSetup(_config: FullConfig) {
   const browser = await chromium.launch()
   const page = await browser.newPage()
   try {
-    await page.goto("http://localhost:3000/login", { waitUntil: "domcontentloaded" })
+    await page.goto(`${API_URL}/login`, { waitUntil: "domcontentloaded" })
     await page.getByTestId("login-email-input").fill(TEST_EMAIL)
     await page.getByTestId("login-password-input").fill(TEST_PASSWORD)
     await page.getByTestId("login-submit-button").click()

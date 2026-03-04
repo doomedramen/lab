@@ -53,6 +53,8 @@ jobs:
     needs: trigger-check
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install libvirt and build dependencies
         run: |
@@ -61,26 +63,24 @@ jobs:
             libvirt-dev \
             pkg-config \
             gcc \
-            libc6-dev \
-            qemu-system-x86 \
-            libvirt-daemon-system
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: apps/api/go.mod
-          cache-dependency-path: apps/api/go.sum
-          cache: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+            libc6-dev
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache: true
 
       - name: Install proto tools
         run: |
@@ -93,53 +93,51 @@ jobs:
         with:
           github_token: ${{ github.token }}
 
-      - name: Generate proto code
-        run: |
-          cd apps/api
-          make proto
-
       - name: Determine version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/v}"
           elif [ -f VERSION ]; then
-            echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+            VERSION="$(cat VERSION)"
           else
-            echo "version=dev-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+            VERSION="dev-$(git rev-parse --short HEAD)"
           fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Build single binary (API + embedded web)
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and Package
         env:
           CGO_ENABLED: 1
           VERSION: ${{ steps.version.outputs.version }}
+          NEXT_PUBLIC_API_URL: ""
         run: |
+          # 1. Generate Proto
           cd apps/api
+          make proto
           
-          # Build web UI first
+          # 2. Build Web UI
           cd ../web
-          pnpm install --frozen-lockfile
           pnpm build
           
-          # Copy web build to embed directory
+          # 3. Embed and Build API
           cd ../api
           rm -rf internal/router/web || true
           mkdir -p internal/router/web
           cp -r ../web/out/* internal/router/web/
           
-          # Build Go binary with embedded web
           go build \
             -ldflags="-s -w -X main.version=${VERSION}" \
             -o lab-server-linux-amd64 \
             ./cmd/server
-
-      - name: Create release archive
-        run: |
-          cd apps/api
+          
+          # 4. Archive
           tar -czf lab-server-linux-amd64.tar.gz lab-server-linux-amd64
-          sha256sum lab-server-linux-amd64 > lab-server-linux-amd64.tar.gz.sha256
+          sha256sum lab-server-linux-amd64.tar.gz > lab-server-linux-amd64.tar.gz.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -152,16 +150,17 @@ jobs:
           retention-days: 1
 
   release:
-    name: publish
+    name: Publish
     runs-on: ubuntu-24.04
     if: >-
       always() && !failure() && !cancelled() &&
       (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_release == 'true' || github.event_name == 'workflow_run')
     needs:
-      - trigger-check
       - build-linux
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -169,30 +168,24 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Download SBOM
-        uses: actions/download-artifact@v4
-        with:
-          name: sbom
-          path: dist
-        continue-on-error: true
-
       - name: Determine version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/v}"
           elif [ -f VERSION ]; then
-            echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+            VERSION="$(cat VERSION)"
           else
-            echo "version=dev-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+            VERSION="dev-$(git rev-parse --short HEAD)"
           fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum *.tar.gz *.sha256 2>/dev/null | sort -u > SHA256SUMS.txt || true
+          sha256sum *.tar.gz 2>/dev/null > SHA256SUMS.txt || true
           cat SHA256SUMS.txt
 
       - name: Create Release
@@ -233,22 +226,14 @@ jobs:
             - [Systemd Deployment](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT_SYSTEMD.md)
             - [Architecture](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT_ARCHITECTURE.md)
 
-            ### 🔧 Configuration
-            See [config.example.yaml](https://github.com/${{ github.repository }}/blob/main/apps/api/config.example.yaml) for all options.
-
-            ### 🐛 Known Issues
-            None for this release.
-
             ---
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.version.outputs.previous_version }}...v${{ steps.version.outputs.version }}
+            Generated by GitHub Actions.
           files: |
             dist/*
-          generate_release_notes: false
+          generate_release_notes: true
           make_latest: ${{ startsWith(github.ref, 'refs/tags/v') }}
           prerelease: ${{ contains(github.ref, '-rc.') || contains(github.ref, '-beta.') || contains(github.ref, '-alpha.') }}
 
       - name: Post-release message
         run: |
           echo "✅ Release v${{ steps.version.outputs.version }} published successfully!"
-          echo ""
-          echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"

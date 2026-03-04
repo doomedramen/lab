@@ -22,7 +22,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: "http://localhost:3000",
+    baseURL: process.env.LAB_BINARY_PATH ? "http://localhost:8080" : "http://localhost:3000",
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
@@ -55,23 +55,32 @@ export default defineConfig({
   ],
 
   /* Run your local dev servers before starting the tests */
-  webServer: [
-    {
-      command: "cd ../api && go run ./cmd/server",
-      url: "http://localhost:8080/health",
-      reuseExistingServer: !process.env.CI,
-      timeout: 15000,
-    },
-    {
-      command: "pnpm --filter web build && pnpm --filter web start",
-      // command: "pnpm --filter web dev",
-      url: "http://localhost:3000",
-      reuseExistingServer: !process.env.CI,
-      timeout: 60000,
-      env: {
-        TURBO_UI: "0",
-        FORCE_COLOR: "0",
-      },
-    },
-  ],
+  webServer: process.env.LAB_BINARY_PATH 
+    ? [
+        {
+          command: `${process.env.LAB_BINARY_PATH}`,
+          url: "http://localhost:8080/health",
+          reuseExistingServer: !process.env.CI,
+          timeout: 15000,
+        }
+      ]
+    : [
+        {
+          command: "cd ../api && go run ./cmd/server",
+          url: "http://localhost:8080/health",
+          reuseExistingServer: !process.env.CI,
+          timeout: 15000,
+        },
+        {
+          command: "pnpm --filter web build && pnpm --filter web start",
+          // command: "pnpm --filter web dev",
+          url: "http://localhost:3000",
+          reuseExistingServer: !process.env.CI,
+          timeout: 60000,
+          env: {
+            TURBO_UI: "0",
+            FORCE_COLOR: "0",
+          },
+        },
+      ],
 })

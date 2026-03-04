@@ -21,6 +21,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -31,11 +42,15 @@ jobs:
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
 
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ github.token }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Generate proto code
         run: |
@@ -63,15 +78,16 @@ jobs:
         with:
           name: generated-proto
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -108,15 +124,16 @@ jobs:
             qemu-system-x86 \
             libvirt-daemon-system
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -128,6 +145,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
+        env:
+          JWT_SECRET: "ci-secret-at-least-16-chars-long"
         run: pnpm test:unit
 
       - name: Upload coverage
@@ -135,6 +154,7 @@ jobs:
         with:
           files: apps/api/coverage.out
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     name: Build
@@ -157,26 +177,29 @@ jobs:
             gcc \
             libc6-dev
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version-file: apps/api/go.mod
           cache: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build web UI (static export)
+        env:
+          NEXT_PUBLIC_API_URL: ""
         run: |
           pnpm --filter web build
 
@@ -226,15 +249,16 @@ jobs:
         with:
           name: generated-proto
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -252,7 +276,30 @@ jobs:
       - name: Make binary executable
         run: chmod +x apps/api/lab-server
 
+      - name: Install libvirt and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            pkg-config \
+            gcc \
+            libc6-dev \
+            libvirt-daemon-system \
+            libvirt-clients \
+            qemu-system-x86
+
+      - name: Start libvirtd
+        run: |
+          sudo systemctl enable --now libvirtd
+          # Wait for libvirt to be ready
+          timeout 30s bash -c 'until virsh -c qemu:///system version; do sleep 1; done'
+
       - name: Run E2E tests
+        env:
+          LAB_BINARY_PATH: ${{ github.workspace }}/apps/api/lab-server
+          JWT_SECRET: "ci-secret-at-least-16-chars-long"
+          LIBVIRT_URI: "qemu:///system"
+          NEXT_PUBLIC_API_URL: "http://localhost:8080"
         run: |
           pnpm test:e2e
         continue-on-error: true
