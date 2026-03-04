@@ -181,6 +181,9 @@ func TestCreateAndStartVM(t *testing.T) {
 	machineType := model.MachineTypePC
 	bios := model.BIOSTypeSeaBIOS
 	cpuModel := "host-passthrough" // KVM on Linux
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		cpuModel = "qemu64"
+	}
 	if arch == "aarch64" {
 		machineType = model.MachineTypeVirt
 		bios = model.BIOSTypeOVMF
