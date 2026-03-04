@@ -56,6 +56,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install libvirt and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            pkg-config \
+            gcc \
+            libc6-dev \
+            qemu-system-x86 \
+            libvirt-daemon-system
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -70,6 +81,23 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: apps/api/go.mod
+          cache: false
+
+      - name: Install proto tools
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Generate proto code
+        run: |
+          cd apps/api
+          make proto
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
