@@ -30,6 +30,16 @@ func StackLogsHandler(stackSvc *service.StackService, stacksDir string) http.Han
 
 		composePath := filepath.Join(stacksDir, lt.StackID, "docker-compose.yml")
 
+		// Upgrade to WebSocket first
+		wsConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			InsecureSkipVerify: true,
+		})
+		if err != nil {
+			log.Printf("StackLogs: WebSocket upgrade failed: %v", err)
+			return
+		}
+		defer wsConn.Close(websocket.StatusNormalClosure, "done")
+
 		cmd := exec.CommandContext(r.Context(), "docker", "compose", "-f", composePath, "logs", "-f", "--tail=200")
 
 		// Use a combined pipe for both stdout and stderr
@@ -41,11 +51,12 @@ func StackLogsHandler(stackSvc *service.StackService, stacksDir string) http.Han
 			pw.Close()
 			pr.Close()
 			log.Printf("StackLogs: failed to start docker compose logs: %v", err)
-			http.Error(w, "failed to start log stream", http.StatusInternalServerError)
 			return
 		}
 		defer func() {
-			_ = cmd.Process.Kill()
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
 			_ = cmd.Wait()
 			pw.Close()
 			pr.Close()
@@ -56,15 +67,6 @@ func StackLogsHandler(stackSvc *service.StackService, stacksDir string) http.Han
 			_ = cmd.Wait()
 			pw.Close()
 		}()
-
-		wsConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			InsecureSkipVerify: true,
-		})
-		if err != nil {
-			log.Printf("StackLogs: WebSocket upgrade failed: %v", err)
-			return
-		}
-		defer wsConn.Close(websocket.StatusNormalClosure, "done")
 
 		netConn := websocket.NetConn(r.Context(), wsConn, websocket.MessageText)
 

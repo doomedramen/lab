@@ -89,10 +89,16 @@ func TestStackLogsHandler_ValidToken_MissingComposeFile(t *testing.T) {
 	// Use a non-existent stacks dir — docker compose will fail to start
 	h := StackLogsHandler(svc, "/tmp/nonexistent-stacks-dir")
 	req := httptest.NewRequest(http.MethodGet, "/ws/stack-logs?token="+token, nil)
+	// Add WebSocket headers to satisfy nhooyr.io/websocket upgrade requirements
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Sec-WebSocket-Version", "13")
+	req.Header.Set("Sec-WebSocket-Key", "SGVsbG8sIHdvcmxkIQ==")
+	
 	w := httptest.NewRecorder()
 	h(w, req)
 
-	// Should not be 401 (auth passed), should be 500 because docker command will fail
+	// Should not be 401 (auth passed)
 	if w.Code == http.StatusUnauthorized || w.Code == http.StatusForbidden {
 		t.Errorf("expected non-auth error for valid token, got %d", w.Code)
 	}
