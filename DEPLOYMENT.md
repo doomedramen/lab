@@ -2,6 +2,16 @@
 
 A lightweight virtualization management platform for home servers, providing a modern web UI for managing VMs, containers, storage, and networks via libvirt.
 
+## Deployment Options
+
+| Method | Best For | Complexity |
+|--------|----------|------------|
+| **[Systemd (Bare Metal)](./DEPLOYMENT_SYSTEMD.md)** | Production home servers | Medium |
+| [Docker Compose](#docker-compose-deployment) | Quick setup, isolated | Low |
+| [Manual](#manual-installation) | Custom configurations | High |
+
+**Recommended for bare metal:** See [DEPLOYMENT_SYSTEMD.md](./DEPLOYMENT_SYSTEMD.md) for complete systemd-based installation with automated scripts.
+
 ## Quick Start
 
 ### Development
@@ -235,6 +245,36 @@ docker run -d \
   --name lab-api \
   lab-api:latest
 ```
+
+---
+
+## Docker Compose Deployment
+
+For a simpler, containerized deployment:
+
+```bash
+# Clone repository
+git clone https://github.com/doomedramen/lab.git
+cd lab
+
+# Set environment variables
+export JWT_SECRET=$(openssl rand -base64 32)
+export NEXT_PUBLIC_API_URL=http://localhost:8080
+
+# Build and start
+docker compose build
+docker compose up -d
+
+# Check status
+docker compose ps
+
+# View logs
+docker compose logs -f
+```
+
+Access the web UI at http://localhost:3000.
+
+**Note:** Docker deployment requires the host to have libvirt installed and the Docker daemon configured to access the libvirt socket.
 
 ## Upgrading
 

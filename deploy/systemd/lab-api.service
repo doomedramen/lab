@@ -1,0 +1,54 @@
+[Unit]
+Description=Lab API Server
+Documentation=https://github.com/doomedramen/lab/blob/main/DEPLOYMENT_SYSTEMD.md
+After=network.target libvirtd.service docker.service
+Requires=libvirtd.service
+Wants=docker.service
+
+[Service]
+Type=exec
+User=lab
+Group=libvirt
+
+# Working directory
+WorkingDirectory=/opt/lab
+
+# Main executable
+ExecStart=/opt/lab/api/bin/lab-server
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Environment
+EnvironmentFile=-/etc/lab/lab-api.env
+Environment=LAB_CONFIG=/etc/lab/config.yaml
+Environment=LAB_ENV=production
+
+# Restart policy
+Restart=always
+RestartSec=5
+StartLimitBurst=3
+StartLimitInterval=60s
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lab-api
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/var/lib/lab
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Health check for watchdog (optional)
+# WatchdogSec=30s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,222 @@
+# Lab Platform - Production Configuration
+# 
+# This is an example production configuration for bare metal deployment.
+# Copy this file to /etc/lab/config.yaml and customize for your environment.
+#
+# See DEPLOYMENT_SYSTEMD.md for detailed configuration options.
+
+# =============================================================================
+# Server Configuration
+# =============================================================================
+
+server:
+  # API server port
+  port: "8080"
+  
+  # Environment: development, staging, production
+  env: "production"
+
+# =============================================================================
+# Backend Configuration
+# =============================================================================
+
+# Backend type: "libvirt"
+backend: "libvirt"
+
+# Libvirt connection settings
+libvirt:
+  # Connection URI
+  # - qemu:///system  : System-wide (requires root/libvirt group)
+  # - qemu:///session : User session (no root required, limited features)
+  uri: "qemu:///system"
+
+# =============================================================================
+# Storage Configuration
+# =============================================================================
+
+storage:
+  # Base data directory
+  data_dir: "/var/lib/lab"
+  
+  # ISO image storage location
+  iso_dir: "/var/lib/lab/isos"
+  
+  # VM disk image storage location
+  vm_disk_dir: "/var/lib/libvirt/images"
+  
+  # Docker Compose stacks directory
+  stacks_dir: "/var/lib/lab/stacks"
+  
+  # Maximum ISO file size in bytes (0 = no limit)
+  max_iso_size: 53687091200  # 50 GB
+  
+  # Allowed file extensions for ISO uploads
+  allowed_extensions:
+    - ".iso"
+    - ".img"
+
+# =============================================================================
+# VM Defaults
+# =============================================================================
+
+vm_defaults:
+  # Default disk format for new VMs
+  disk_format: "qcow2"
+  
+  # Default bus type for disks (virtio for best performance)
+  disk_bus: "virtio"
+  
+  # Default network model
+  network_model: "virtio"
+  
+  # Default emulator path (auto-detected if empty)
+  emulator_path: ""
+  
+  # Architecture-specific emulator paths
+  emulator_paths:
+    x86_64: "/usr/bin/qemu-system-x86_64"
+    aarch64: "/usr/bin/qemu-system-aarch64"
+  
+  # OVMF/UEFI firmware path (for UEFI VMs)
+  # Common locations:
+  #   Ubuntu/Debian: /usr/share/OVMF/OVMF_CODE.fd
+  #   Fedora:        /usr/share/edk2/ovmf/OVMF_CODE.fd
+  #   Arch:          /usr/share/edk2/x64/OVMF_CODE.fd
+  ovmf_path: ""
+
+# =============================================================================
+# Upload Configuration (Tus Protocol)
+# =============================================================================
+
+upload:
+  # Chunk size for resumable uploads
+  chunk_size: 52428800  # 50 MB
+  
+  # Retry delays in milliseconds
+  retry_delays:
+    - 0
+    - 1000
+    - 3000
+    - 5000
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+  
+  # Log format: text, json
+  format: "text"
+  
+  # VM log retention in days
+  vm_log_retention_days: 7
+
+# =============================================================================
+# Authentication Configuration
+# =============================================================================
+
+auth:
+  # JWT secret key (REQUIRED)
+  # Generate with: openssl rand -base64 32
+  # WARNING: Always use a strong, unique secret in production!
+  jwt_secret: ""  # Set via environment variable LAB_AUTH_JWT_SECRET
+  
+  # Access token expiry (short-lived for security)
+  access_token_expiry: "15m"
+  
+  # Refresh token expiry
+  refresh_token_expiry: "168h"  # 7 days
+  
+  # JWT issuer claim
+  issuer: "lab"
+  
+  # MFA settings
+  mfa:
+    # Name shown in authenticator apps
+    issuer_name: "Lab"
+    
+    # Require MFA for admin accounts
+    required_for_admin: false
+
+# =============================================================================
+# Reverse Proxy Configuration
+# =============================================================================
+
+# Built-in reverse proxy settings
+proxy:
+  # Enable the built-in reverse proxy
+  enabled: false
+  
+  # HTTP port (for plain-HTTP and ACME challenges)
+  http_port: 80
+  
+  # HTTPS port (for TLS)
+  https_port: 443
+  
+  # ACME/Let's Encrypt settings
+  acme_email: ""  # Required for ssl_mode: acme
+  acme_storage_dir: ""  # Where certificates are stored
+  
+  # SSL mode: none, acme, manual
+  ssl_mode: "none"
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
+
+database:
+  # SQLite database path
+  path: "/var/lib/lab/metrics.db"
+  
+  # Connection pool settings
+  max_open_conns: 10
+  max_idle_conns: 5
+  
+  # Connection timeout
+  conn_max_lifetime: "1h"
+
+# =============================================================================
+# Session Configuration
+# =============================================================================
+
+session:
+  # Session cookie name
+  cookie_name: "lab_session"
+  
+  # Session expiry
+  expiry: "24h"
+  
+  # Secure cookies (always true in production)
+  secure: true
+  
+  # SameSite policy
+  same_site: "lax"
+
+# =============================================================================
+# CORS Configuration
+# =============================================================================
+
+cors:
+  # Allowed origins (empty = same origin)
+  allowed_origins: []
+  
+  # Allowed methods
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  
+  # Allowed headers
+  allowed_headers:
+    - "Authorization"
+    - "Content-Type"
+  
+  # Allow credentials
+  allow_credentials: true
+  
+  # Max age for preflight cache
+  max_age: 3600

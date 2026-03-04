@@ -1,0 +1,50 @@
+[Unit]
+Description=Lab Web UI
+Documentation=https://github.com/doomedramen/lab/blob/main/DEPLOYMENT_SYSTEMD.md
+After=network.target lab-api.service
+Requires=lab-api.service
+
+[Service]
+Type=exec
+User=lab
+Group=lab
+
+# Working directory
+WorkingDirectory=/opt/lab/web
+
+# Main executable
+ExecStart=/usr/bin/node server.js
+
+# Environment
+EnvironmentFile=-/etc/lab/lab-web.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+
+# Restart policy
+Restart=always
+RestartSec=5
+StartLimitBurst=3
+StartLimitInterval=60s
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lab-web
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/opt/lab/web/.next
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=1024
+
+[Install]
+WantedBy=multi-user.target
