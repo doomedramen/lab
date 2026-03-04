@@ -7,7 +7,6 @@ A lightweight virtualization management platform for home servers, providing a m
 | Method | Best For | Complexity |
 |--------|----------|------------|
 | **[Systemd (Bare Metal)](./DEPLOYMENT_SYSTEMD.md)** | Production home servers | Medium |
-| [Docker Compose](#docker-compose-deployment) | Quick setup, isolated | Low |
 | [Manual](#manual-installation) | Custom configurations | High |
 
 **Recommended for bare metal:** See [DEPLOYMENT_SYSTEMD.md](./DEPLOYMENT_SYSTEMD.md) for complete systemd-based installation with automated scripts.
