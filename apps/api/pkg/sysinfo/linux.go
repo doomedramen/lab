@@ -208,7 +208,7 @@ func (l *linuxInfo) DefaultCPUModel(guestArch string) string {
 		return "qemu64"
 	}
 	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		return "qemu64"
+		return "host-model"
 	}
 	return "host-passthrough"
 }

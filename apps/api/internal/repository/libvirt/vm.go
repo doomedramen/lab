@@ -264,10 +264,19 @@ func (r *VMRepository) buildDomainXML(req *model.VMCreateRequest, vmid int, memo
 		nestedVirtFeature = `
       <feature policy='require' name='vmx'/>`
 	}
+
+	// Handle CPU model and mode correctly
+	cpuMode := req.CPUModel
+	cpuModelXML := ""
+	if cpuMode != "host-passthrough" && cpuMode != "host-model" && cpuMode != "maximum" {
+		cpuMode = "custom"
+		cpuModelXML = fmt.Sprintf("\n    <model fallback='allow'>%s</model>", req.CPUModel)
+	}
+
 	cpuXML := fmt.Sprintf(`
   <cpu mode='%s' check='none'>
-    <topology sockets='%d' cores='%d' threads='1'/>%s
-  </cpu>`, req.CPUModel, req.CPUSockets, req.CPUCores, nestedVirtFeature)
+    <topology sockets='%d' cores='%d' threads='1'/>%s%s
+  </cpu>`, cpuMode, req.CPUSockets, req.CPUCores, cpuModelXML, nestedVirtFeature)
 
 	// --- PCI controller XML ---
 	// aarch64/virt and q35 use PCIe root; pc (i440fx) uses legacy PCI root
