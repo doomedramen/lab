@@ -391,18 +391,6 @@ func (r *VMRepository) buildDomainXML(req *model.VMCreateRequest, vmid int, memo
     <input type='keyboard' bus='usb'/>`
 	}
 
-	// QEMU commandline arguments for macOS hvf compatibility
-	qemuCmdXML := ""
-	if osArch == "aarch64" {
-		// highmem=off is required for some ARM guests on macOS
-		// See: https://gist.github.com/davidandreoletti/af2a17ea095af9476ad012b4a2365a40
-		qemuCmdXML = `
-  <qemu:commandline>
-    <qemu:arg value='-machine'/>
-    <qemu:arg value='highmem=off'/>
-  </qemu:commandline>`
-	}
-
 	// --- Boot order XML ---
 	// Default boot order: hd, cdrom (network boot optional)
 	bootOrder := req.BootOrder
@@ -433,13 +421,13 @@ func (r *VMRepository) buildDomainXML(req *model.VMCreateRequest, vmid int, memo
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>restart</on_reboot>
   <on_crash>destroy</on_crash>
-%s
   <devices>
     <emulator>%s</emulator>
     %s
     %s
     %s
-    %s%s
+    %s
+    %s
     %s
     <console type='pty'>
       <target type='serial' port='0'/>
@@ -453,9 +441,9 @@ func (r *VMRepository) buildDomainXML(req *model.VMCreateRequest, vmid int, memo
     </video>
     %s
     %s
+    %s
     <memballoon model='virtio'/>
   </devices>
-%s
 </domain>`,
 		vmid,
 		req.Name,
@@ -482,7 +470,6 @@ func (r *VMRepository) buildDomainXML(req *model.VMCreateRequest, vmid int, memo
 		inputXML,
 		tpmXML,
 		pciHostdevXML,
-		qemuCmdXML,
 	)
 
 	return domainXML
@@ -522,15 +509,12 @@ func buildNetworkXML(networks []model.NetworkConfig, vmid int) string {
         <tag id='%d'/>
       </vlan>`, net.VLAN)
 			}
-			// On macOS, use vmnet-shared instead of vmnet-bridged
-			// vmnet-shared provides NAT + VM-to-VM + host-to-VM communication
-			// vmnet-bridged requires additional permissions and is more complex
 			sb.WriteString(fmt.Sprintf(`
-    <interface type='vmnet'>
+    <interface type='bridge'>
       <mac address='%s'/>
-      <source mode='shared'/>
+      <source bridge='%s'/>
       <model type='%s'/>%s
-    </interface>`, mac, string(net.Model), vlanXML))
+    </interface>`, mac, net.Bridge, string(net.Model), vlanXML))
 		default: // user-mode
 			// Build port forwarding configuration
 			hostfwd := ""
