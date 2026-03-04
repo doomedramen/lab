@@ -4,6 +4,7 @@
 package libvirt
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -216,22 +217,29 @@ func TestCreateAndStartVM(t *testing.T) {
 		}
 	})
 
-	created := repo.Create(req)
+	ctx := context.Background()
+	created, err := repo.Create(ctx, req)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
 	if created == nil {
-		t.Fatal("Create returned nil — check libvirt logs")
+		t.Fatal("Create returned nil")
 	}
 	t.Logf("Domain defined: name=%s arch=%s machine=%s bios=%s",
 		created.ID, created.Arch, created.MachineType, created.BIOS)
 
 	// Fetch back via GetByID to get the consistently-resolved VMID
 	// (Create uses a timestamp VMID; GetByVMID resolves via domain name).
-	vm := repo.GetByID(created.ID)
+	vm, err := repo.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetByID failed: %v", err)
+	}
 	if vm == nil {
 		t.Fatalf("GetByID(%q) returned nil after Create", created.ID)
 	}
 
 	// --- Start ---
-	if err := repo.Start(vm.VMID); err != nil {
+	if err := repo.Start(ctx, vm.VMID); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	t.Log("Start called — polling for running state…")
@@ -243,7 +251,7 @@ func TestCreateAndStartVM(t *testing.T) {
 	deadline := time.Now().Add(pollTimeout)
 	var running bool
 	for time.Now().Before(deadline) {
-		got := repo.GetByID(vm.ID)
+		got, _ := repo.GetByID(ctx, vm.ID)
 		if got != nil && got.Status == model.VMStatusRunning {
 			running = true
 			break
@@ -257,11 +265,14 @@ func TestCreateAndStartVM(t *testing.T) {
 	}
 
 	// --- Stop ---
-	if err := repo.Stop(vm.VMID); err != nil {
+	if err := repo.Stop(ctx, vm.VMID); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
 
-	got := repo.GetByID(vm.ID)
+	got, err := repo.GetByID(ctx, vm.ID)
+	if err != nil {
+		t.Fatalf("GetByID after Stop failed: %v", err)
+	}
 	if got == nil {
 		t.Fatal("GetByID returned nil after Stop")
 	}
