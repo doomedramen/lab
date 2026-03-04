@@ -18,10 +18,9 @@ rosetta:
   enabled: false
 
 # Use host architecture (aarch64 on Apple Silicon) for native speed.
-# x86_64 test coverage is handled by Docker with platform: linux/amd64.
 arch: "host"
 
-# Debian 12 Bookworm — matches Dockerfile base image
+# Debian 12 Bookworm
 images:
   - location: "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-arm64.qcow2"
     arch: "aarch64"
@@ -73,31 +72,13 @@ provision:
       apt-get install -y \
         curl wget gnupg ca-certificates apt-transport-https \
         build-essential pkg-config git \
-        libvirt-dev libvirt-daemon-system libvirt-clients \
+        libvirt-daemon-system libvirt-clients \
         qemu-system-x86 qemu-system-arm qemu-utils \
-        qemu-user-static binfmt-support \
         protobuf-compiler \
         unzip
 
-      # binfmt_misc is needed for Docker linux/amd64 containers on ARM64
-      systemctl restart binfmt-support || true
+        # ── libvirtd ─────────────────────────────────────────────────────
 
-  # ── Docker CE ────────────────────────────────────────────────────
-  - mode: system
-    script: |
-      #!/bin/bash
-      set -eux -o pipefail
-      if ! command -v docker &>/dev/null; then
-        curl -fsSL https://get.docker.com | sh
-      fi
-      systemctl enable --now docker
-
-      # Grant the Lima user access to docker and libvirt
-      PRIMARY_USER="$(getent passwd 1000 | cut -d: -f1)"
-      usermod -aG docker "$PRIMARY_USER" 2>/dev/null || true
-      usermod -aG libvirt "$PRIMARY_USER" 2>/dev/null || true
-
-  # ── libvirtd ─────────────────────────────────────────────────────
   - mode: system
     script: |
       #!/bin/bash
@@ -185,6 +166,5 @@ message: |
       limactl shell lab              # open shell
       make dev                       # start dev servers
       make test                      # run API tests
-      make test-x86                  # run x86_64 Docker tests
 
   ==========================================================
