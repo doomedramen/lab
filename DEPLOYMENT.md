@@ -226,54 +226,7 @@ This creates binaries in `apps/api/bin/`:
 - `lab-server-linux-amd64`
 - `lab-server-linux-arm64`
 
-### Docker Build
-
-```bash
-cd apps/api
-docker build -t lab-api:latest .
-```
-
-Run with:
-
-```bash
-docker run -d \
-  -p 8080:8080 \
-  -v /var/run/libvirt:/var/run/libvirt \
-  -v lab-data:/var/lib/lab \
-  -v /etc/lab/config.yaml:/etc/lab/config.yaml:ro \
-  --name lab-api \
-  lab-api:latest
-```
-
----
-
-## Docker Compose Deployment
-
-Single container deployment with embedded web UI:
-
-```bash
-# Clone repository
-git clone https://github.com/doomedramen/lab.git
-cd lab
-
-# Set environment variables
-export JWT_SECRET=$(openssl rand -base64 32)
-
-# Build and start (single container)
-docker compose up -d --build
-
-# Check status
-docker compose ps
-
-# View logs
-docker compose logs -f
-```
-
-**Access:** http://localhost:8080
-
-**Note:** Docker deployment requires the host to have libvirt installed and the Docker daemon configured to access the libvirt socket.
-
-## Upgrading
+### Upgrading
 
 ### From Source
 
