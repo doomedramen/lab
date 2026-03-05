@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/doomedramen/lab/actions/workflows/ci.yml/badge.svg)](https://github.com/doomedramen/lab/actions/workflows/ci.yml)
 [![Release](https://github.com/doomedramen/lab/actions/workflows/release.yml/badge.svg)](https://github.com/doomedramen/lab/actions/workflows/release.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/doomedramen/lab?filename=apps/api/go.mod)](https://go.dev/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Go Version](https://img.shields.io/badge/Go-1.25.7-blue?logo=go)](https://go.dev/)
+[![Next.js](https://img.shields.io/static/v1?label=Next.js&message=16&color=black&logo=next.js)](https://nextjs.org/)
 
 **Lab** is a modern, lightweight virtualization management platform designed for home servers. It provides a beautiful, responsive web interface to manage your virtual machines, containers, networks, and storage without the overhead of enterprise-grade hypervisors.
 
@@ -43,8 +43,8 @@ Built with performance and simplicity in mind, Lab leverages **libvirt**, **QEMU
 
 | Component | Technology |
 |-----------|------------|
-| **Frontend** | [Next.js 15](https://nextjs.org/), [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) |
-| **Backend** | [Go 1.23+](https://go.dev/), [chi](https://github.com/go-chi/chi), [ConnectRPC](https://connectrpc.com/) |
+| **Frontend** | [Next.js 16](https://nextjs.org/), [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) |
+| **Backend** | [Go 1.25+](https://go.dev/), [chi](https://github.com/go-chi/chi), [ConnectRPC](https://connectrpc.com/) |
 | **API** | Protobuf / gRPC / Connect |
 | **Database** | [SQLite](https://sqlite.org/) (embedded with WAL mode) |
 | **Virtualization** | [libvirt](https://libvirt.org/), [QEMU/KVM](https://www.qemu.org/), [LXC](https://linuxcontainers.org/) |
@@ -140,7 +140,7 @@ Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details.
 
 ## 📄 License
 
-This project is licensed under the **MIT License**.
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](./LICENSE) file for details.
 
 ---
 
