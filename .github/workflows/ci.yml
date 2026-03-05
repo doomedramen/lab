@@ -113,10 +113,10 @@ jobs:
       - name: Check dependency versions
         run: pnpm syncpack:lint || true
 
-  test:
-    name: Test
+  test-and-build:
+    name: Test and Build
     runs-on: ubuntu-24.04
-    needs: prepare
+    needs: [prepare, lint]
     steps:
       - uses: actions/checkout@v4
 
@@ -141,7 +141,13 @@ jobs:
             gcc \
             libc6-dev \
             qemu-system-x86 \
-            libvirt-daemon-system
+            libvirt-daemon-system \
+            libvirt-clients
+
+      - name: Start libvirtd
+        run: |
+          sudo systemctl enable --now libvirtd
+          timeout 30s bash -c 'until virsh -c qemu:///system version; do sleep 1; done'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -175,86 +181,24 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  build:
-    name: Build
-    runs-on: ubuntu-24.04
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download api gen code
-        uses: actions/download-artifact@v4
-        with:
-          name: api-gen
-          path: apps/api/gen
-
-      - name: Download web gen code
-        uses: actions/download-artifact@v4
-        with:
-          name: web-gen
-          path: apps/web/lib/gen
-
-      - name: Install libvirt and build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libvirt-dev \
-            pkg-config \
-            gcc \
-            libc6-dev
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: apps/api/go.mod
-          cache: true
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Build web UI (static export)
         env:
           NEXT_PUBLIC_API_URL: ""
         run: |
           pnpm --filter web build
 
-      - name: Verify static export
-        run: |
-          test -d apps/web/out
-          test -f apps/web/out/index.html
-          echo "✅ Web UI built successfully"
-
       - name: Build single binary (API + embedded web)
         env:
           CGO_ENABLED: 1
         run: |
           cd apps/api
-          
-          # Copy web build to embed directory
           rm -rf internal/router/web || true
           mkdir -p internal/router/web
           cp -r ../web/out/* internal/router/web/
-          
-          # Build Go binary with embedded web
           go build \
             -ldflags="-s -w -X main.version=ci-$(git rev-parse --short HEAD)" \
             -o lab-server \
             ./cmd/server
-          
-          # Verify binary
-          test -f lab-server
-          echo "✅ Binary built successfully"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
@@ -266,7 +210,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-24.04
-    needs: build
+    needs: test-and-build
     steps:
       - uses: actions/checkout@v4
 
@@ -324,7 +268,6 @@ jobs:
       - name: Start libvirtd
         run: |
           sudo systemctl enable --now libvirtd
-          # Wait for libvirt to be ready
           timeout 30s bash -c 'until virsh -c qemu:///system version; do sleep 1; done'
 
       - name: Run E2E tests
