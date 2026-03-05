@@ -100,10 +100,23 @@ func NewServer(deps *ServerDependencies) *Server {
 // Start starts the HTTP server
 func (s *Server) Start() error {
 	addr := fmt.Sprintf(":%s", s.config.Server.Port)
-	log.Printf("Starting server on %s (env: %s, version: %s)", addr, s.config.Server.Env, s.version)
+	protocol := "http"
+	if s.config.Server.TLSEnabled {
+		protocol = "https"
+	}
+	log.Printf("Starting server on %s://%s (env: %s, version: %s)", protocol, addr, s.config.Server.Env, s.version)
 
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		var err error
+		if s.config.Server.TLSEnabled {
+			err = s.httpServer.ListenAndServeTLS(
+				s.config.Server.TLSCertFile,
+				s.config.Server.TLSKeyFile,
+			)
+		} else {
+			err = s.httpServer.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}
 	}()

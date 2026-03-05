@@ -43,8 +43,11 @@ type ProxyConfig struct {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port string `yaml:"port"`
-	Env  string `yaml:"env"`
+	Port        string `yaml:"port"`
+	Env         string `yaml:"env"`
+	TLSEnabled  bool   `yaml:"tls_enabled"`
+	TLSCertFile string `yaml:"tls_cert_file"`
+	TLSKeyFile  string `yaml:"tls_key_file"`
 }
 
 // LibvirtConfig holds libvirt connection settings
@@ -194,6 +197,25 @@ func (c *Config) Validate() error {
 	if c.Server.Env == "production" && c.Auth.JWTSecret == "" {
 		return errors.New("JWT_SECRET must be set in production")
 	}
+
+	// TLS validation
+	if c.Server.TLSEnabled {
+		if c.Server.TLSCertFile == "" {
+			return errors.New("tls_cert_file is required when tls_enabled is true")
+		}
+		if c.Server.TLSKeyFile == "" {
+			return errors.New("tls_key_file is required when tls_enabled is true")
+		}
+		// Check that cert file exists and is readable
+		if _, err := os.Stat(c.Server.TLSCertFile); err != nil {
+			return fmt.Errorf("cannot access tls_cert_file %q: %w", c.Server.TLSCertFile, err)
+		}
+		// Check that key file exists and is readable
+		if _, err := os.Stat(c.Server.TLSKeyFile); err != nil {
+			return fmt.Errorf("cannot access tls_key_file %q: %w", c.Server.TLSKeyFile, err)
+		}
+	}
+
 	return nil
 }
 

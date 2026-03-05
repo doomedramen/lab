@@ -6,6 +6,11 @@ server:
   port: "8080"
   env: "development"  # development, staging, production
 
+  # TLS configuration (optional - for direct HTTPS serving)
+  # tls_enabled: true
+  # tls_cert_file: "/path/to/cert.pem"
+  # tls_key_file: "/path/to/key.pem"
+
 # Backend type: "libvirt"
 backend: "libvirt"
 

@@ -235,30 +235,26 @@ forward), IP whitelisting on the API is a simple and effective security layer.
 
 ### 4.3 TLS / Certificate Management
 
+**Status:** ✅ **COMPLETED**
+
 **Why.** The server currently runs plain HTTP. For any setup beyond
 `localhost`, this is unacceptable.
 
-**Option A — Built-in TLS (low complexity):**
-Accept a cert and key path in config; serve HTTPS directly.
+**Implemented Option A — Built-in TLS:**
+Accept a cert and key path in config; serve HTTPS directly using Go's stdlib.
 
-| File                                 | Change                                                |
-| ------------------------------------ | ----------------------------------------------------- |
-| `apps/api/internal/config/config.go` | Add `Server.TLSCertFile`, `Server.TLSKeyFile`         |
-| `apps/api/cmd/server/main.go`        | If cert+key configured, call `http.ListenAndServeTLS` |
+**Files modified:**
 
-**Option B — ACME / Let's Encrypt (medium complexity):**
-Use `golang.org/x/crypto/acme/autocert` for automatic cert provisioning.
+| File | Change |
+|------|--------|
+| `apps/api/internal/config/config.go` | Add `TLSEnabled`, `TLSCertFile`, `TLSKeyFile` to ServerConfig + validation |
+| `apps/api/cmd/server/init_server.go` | Conditional `ListenAndServeTLS` with protocol logging |
+| `apps/api/config.example.yaml` | Document TLS config options (commented out by default) |
 
-| File                                 | Change                                             |
-| ------------------------------------ | -------------------------------------------------- |
-| `apps/api/internal/config/config.go` | Add `Server.ACMEDomain`, `Server.ACMEEmail`        |
-| `apps/api/cmd/server/main.go`        | Set up autocert manager and wire to HTTPS listener |
+**Option B — ACME / Let's Encrypt** is deferred. Users who want automatic HTTPS
+can run Caddy or nginx as a reverse proxy in front of the Lab API.
 
-**Recommendation:** Implement Option A first (20 minutes of work). Document
-Caddy as the recommended reverse proxy for users who want automatic HTTPS.
-Option B can follow if there's demand.
-
-**Complexity:** Very Low (A) / Low (B).
+**Complexity:** Very Low.
 
 ---
 
@@ -423,7 +419,7 @@ active proxy mappings and allowing quick configuration.
 | 15  | Session management                  | 3     | Low-Medium  | Medium — security                               |             |
 | 16  | User groups                         | 4     | Medium      | Low — single-user home server                   |             |
 | 17  | IP whitelisting                     | 4     | Very Low    | Low-Medium                                      |             |
-| 18  | TLS support                         | 4     | Very Low    | Medium — needed for remote access               |             |
+| 18  | TLS support                         | 4     | Very Low    | Medium — needed for remote access               | ✅ **DONE** |
 | 19  | Reverse Proxy Core                  | 5     | Medium-High | Medium — convenience, unified management        |             |
 | 20  | VM/Container Proxy Integration      | 5     | Low         | Low-Medium — tight integration                  |             |
 | 21  | Uptime Monitoring                   | 5     | Medium      | Medium — operational visibility                 |             |
@@ -737,9 +733,9 @@ They address security, reliability, and operational gaps.
 
 #### 1. Add TLS Configuration
 
-**Status:** ⬜ **PENDING**
+**Status:** ✅ **COMPLETED**
 
-Pending.
+Completed. See task 4.3 for details.
 
 ---
 
@@ -849,12 +845,12 @@ Pending.
 
 | Priority | Count | Items |
 |----------|-------|-------|
-| Critical | 3 | TLS, JWT runtime validation, request size limits |
+| Critical | 2 | JWT runtime validation, request size limits (TLS ✅ done) |
 | High | 3 | RBAC, SQL injection prevention, circuit breaker |
 | Medium | 4 | Rate limiter optimization, request ID tracing, platform paths, Prometheus |
 | Low | 3 | Error message standardization, OpenAPI docs, health checks |
 
-**Total:** 13 items
+**Total:** 13 items (1 completed)
 
 ---
 
