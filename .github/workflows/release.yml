@@ -36,16 +36,31 @@ permissions:
   packages: write
 
 jobs:
+  check-ci:
+    name: Check CI Success
+    runs-on: ubuntu-24.04
+    # This job runs if it's a workflow_run event.
+    # It will fail if the CI workflow did not succeed.
+    if: github.event_name == 'workflow_run'
+    steps:
+      - name: Verify CI conclusion
+        if: github.event.workflow_run.conclusion != 'success'
+        run: |
+          echo "CI workflow failed with status: ${{ github.event.workflow_run.conclusion }}"
+          exit 1
+      - name: CI succeeded
+        run: echo "CI workflow succeeded."
+
   build-linux:
     name: linux-amd64
-    # Only run if:
-    # 1. It's a tag push
-    # 2. It's manual dispatch (and build_linux is true)
-    # 3. It's a workflow_run AND the CI workflow succeeded
-    if: >-
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_linux == 'true') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    needs: [check-ci]
+    # This job runs if:
+    # 1. CI check passed (via needs)
+    # 2. OR it's NOT a workflow_run event (e.g. push or manual)
+    if: |
+      always() && 
+      (needs.check-ci.result == 'success' || needs.check-ci.result == 'skipped') &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.build_linux == 'true')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -149,9 +164,11 @@ jobs:
   release:
     name: Publish
     runs-on: ubuntu-24.04
-    # Implicitly skips if build-linux is skipped or fails
-    needs:
-      - build-linux
+    needs: [build-linux]
+    if: |
+      always() &&
+      needs.build-linux.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.publish_release == 'true')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -181,7 +198,11 @@ jobs:
         run: |
           mkdir -p dist
           cd dist
-          sha256sum *.tar.gz 2>/dev/null > SHA256SUMS.txt || true
+          if ls *.tar.gz 1> /dev/null 2>&1; then
+            sha256sum *.tar.gz > SHA256SUMS.txt
+          else
+            touch SHA256SUMS.txt
+          fi
           cat SHA256SUMS.txt
 
       - name: Create Release
