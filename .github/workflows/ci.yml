@@ -57,13 +57,18 @@ jobs:
           cd apps/api
           make proto
 
-      - name: Upload generated code
+      - name: Upload api gen code
         uses: actions/upload-artifact@v4
         with:
-          name: generated-proto
-          path: |
-            apps/api/gen/
-            apps/web/lib/gen/
+          name: api-gen
+          path: apps/api/gen/
+          retention-days: 1
+
+      - name: Upload web gen code
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen/
           retention-days: 1
 
   lint:
@@ -73,10 +78,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download generated code
+      - name: Download api gen code
         uses: actions/download-artifact@v4
         with:
-          name: generated-proto
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Download web gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -108,10 +120,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download generated code
+      - name: Download api gen code
         uses: actions/download-artifact@v4
         with:
-          name: generated-proto
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Download web gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen
 
       - name: Install libvirt and build dependencies
         run: |
@@ -163,10 +182,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download generated code
+      - name: Download api gen code
         uses: actions/download-artifact@v4
         with:
-          name: generated-proto
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Download web gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen
 
       - name: Install libvirt and build dependencies
         run: |
@@ -244,10 +270,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download generated code
+      - name: Download api gen code
         uses: actions/download-artifact@v4
         with:
-          name: generated-proto
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Download web gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
