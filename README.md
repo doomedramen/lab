@@ -73,6 +73,21 @@ pnpm dev
 ```
 Open **http://localhost:3000** to access the dashboard.
 
+### 🐳 Development on macOS / Windows
+Since Lab relies on Linux-native features (KVM, LXC), we provide a containerized environment for testing and development on other platforms.
+
+```bash
+# Build the test container
+docker build -t lab-test -f Dockerfile.test .
+
+# Run all tests (API unit + Integration + Web E2E)
+# Note: --privileged is required for libvirt/LXC inside Docker
+docker run --privileged -v $(pwd):/app lab-test
+
+# Run only API tests (faster)
+docker run --privileged -e PLAYWRIGHT_SKIP=1 -v $(pwd):/app lab-test
+```
+
 ### Production Build
 ```bash
 # Build the static web UI

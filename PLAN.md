@@ -858,126 +858,61 @@ Pending.
 
 ---
 
-## Phase 8 — Infrastructure as Code (IaC)
+## Phase 8 — Native GitOps & Configuration Management
 
-Infrastructure as Code support for automated, repeatable deployments and resource management.
+Native GitOps integration for automated, declarative infrastructure and software configuration management. This replaces the need for external tools like Pulumi or Ansible by baking the reconciliation loop directly into the Lab API. See `GITOPS_SPEC.md` for the full technical specification.
 
 ---
 
-### 8.1 Pulumi Integration
+### 8.1 GitOps Core (The Controller)
 
 **Status:** ⏳ **PLANNING**
 
-**Why.** Enable users to define and manage lab infrastructure (VMs, containers, networks, storage) using code. Pulumi is selected over Terraform/Ansible because:
+**Why.** Enable users to define their entire lab state (VMs, containers, networks, storage, *and* software configuration) in a Git repository. The Lab API acts as a Kubernetes-style controller, continuously reconciling the actual state with the desired state defined in Git.
 
-- **Language match** — Uses Go or TypeScript (your existing stack), no new language like HCL
-- **libvirt provider** — Official provider for VMs, networks, storage pools
-- **Docker provider** — Native SDK for container orchestration
-- **State management** — Built-in state backends (local, S3, Pulumi Cloud)
-- **Testing** — Write unit tests in Go/TS for infrastructure
-- **Multi-resource** — Manage libvirt VMs, Docker containers, and cloud resources in one stack
+**Deliverable.** A built-in GitOps controller that:
+- Clones and watches a Git repository (public or private)
+- Parses YAML manifests from a structured directory tree
+- Detects drift between Git (desired) and Database/Libvirt (actual)
+- Tracks task execution state in SQLite for idempotency
 
-**Deliverable.** Pulumi SDK/templates for provisioning lab resources:
+**Complexity:** High. Requires robust diff logic and state management.
 
-- libvirt VMs and containers
-- Virtual networks and bridges
-- Storage pools and volumes
-- Docker Compose stacks
-- Proxy hosts and uptime monitors
+---
 
-**Implementation approach:**
+### 8.2 Infrastructure Reconciler
 
-| Component | Description |
-|-----------|-------------|
-| `pulumi/` | New directory with Pulumi stacks |
-| `pulumi/lab-vm/` | Example: Provision VMs with disks, networks |
-| `pulumi/lab-network/` | Example: Virtual networks and bridges |
-| `pulumi/lab-storage/` | Example: Storage pools and ISO management |
-| `pulumi/lab-docker/` | Example: Docker Compose stacks |
-| `docs/IAC.md` | Guide: Using Pulumi with lab platform |
-| `examples/` | Complete examples for common scenarios |
+**Status:** ⏳ **PLANNING**
 
-**Example Pulumi code (TypeScript):**
+**Why.** The core logic to apply the infrastructure changes defined in the manifests.
 
-```typescript
-import * as libvirt from "@pulumi/libvirt";
-import * as docker from "@pulumi/docker";
+**Features:**
+- **VMs:** Create, update (resize CPU/RAM), delete VMs based on YAML.
+- **Networks:** Create bridges/NAT networks.
+- **Storage:** Create pools and volumes.
+- **Stacks:** Deploy docker-compose stacks.
 
-// Define a libvirt VM
-const vm = new libvirt.Domain("web-server", {
-  name: "web-vm-1",
-  memory: "4096",
-  vcpu: 2,
-  networkInterfaces: [{
-    networkName: "default",
-  }],
-  disks: [{
-    file: "/var/lib/libvirt/images/web-vm-1.qcow2",
-    size: 50, // GB
-  }],
-});
+**Safety Mechanisms:**
+- **Managed-By Label:** Only touch resources tagged as `managed-by: gitops`.
+- **Deletion Protection:** Require explicit `prune: true` config to delete resources.
 
-// Define a Docker container
-const container = new docker.Container("app", {
-  image: "nginx:latest",
-  ports: [{ internal: 80, external: 8080 }],
-});
-```
+**Complexity:** Medium-High. Connecting the diff engine to existing services.
 
-**Example Pulumi code (Go):**
+---
 
-```go
-package main
+### 8.3 Configuration Engine (The "Playbook")
 
-import (
-  libvirt "github.com/pulumi/pulumi-libvirt/sdk/go/libvirt"
-  "github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-)
+**Status:** ⏳ **PLANNING**
 
-func main() {
-  pulumi.Run(func(ctx *pulumi.Context) error {
-    vm, err := libvirt.NewDomain(ctx, "web-server", &libvirt.DomainArgs{
-      Name: pulumi.String("web-vm-1"),
-      Memory: pulumi.String("4096"),
-      Vcpu: pulumi.Int(2),
-    })
-    if err != nil {
-      return err
-    }
-    return nil
-  })
-}
-```
+**Why.** Provisioning a VM is only half the battle. This brings "Ansible-lite" functionality directly into the VM definition, allowing for software installation, user management, and system configuration.
 
-**Files to create:**
+**Deliverable.** A declarative configuration engine that uses agentless SSH to apply state:
+- **Package Management:** Abstracted support for `apt`, `pacman`, and `apk`.
+- **User/Group Management:** Declarative user state and SSH key injection.
+- **Source-to-Service:** Git cloning, compiling from source, and systemd unit management.
+- **Idempotency:** `creates` guards and hash-based skipping to avoid redundant work.
 
-| File | Change |
-|------|--------|
-| `pulumi/Pulumi.yaml` | Project definition |
-| `pulumi/go.mod` | Go module for Pulumi stacks |
-| `pulumi/vm/main.go` | Example: VM provisioning |
-| `pulumi/network/main.go` | Example: Network provisioning |
-| `pulumi/storage/main.go` | Example: Storage pool provisioning |
-| `pulumi/docker/main.go` | Example: Docker stack provisioning |
-| `docs/IAC.md` | Comprehensive IaC guide |
-| `examples/pulumi/` | Complete working examples |
-
-**Complexity:** Medium. Requires Pulumi expertise and testing against libvirt.
-
-**Benefits:**
-
-- ✅ Declarative infrastructure
-- ✅ Version-controlled configurations
-- ✅ Repeatable deployments
-- ✅ State tracking and drift detection
-- ✅ Multi-environment support (dev/staging/production)
-- ✅ Integration with CI/CD pipelines
-
-**Out of scope (for now):**
-
-- Custom Pulumi provider for lab API (would require gRPC provider SDK)
-- Ansible playbooks for guest configuration (future Phase 8 extension)
-- Terraform provider (Pulumi selected as primary IaC tool)
+**Complexity:** High. Requires reliable SSH orchestration and OS-specific abstractions.
 
 ---
 
@@ -985,15 +920,19 @@ func main() {
 
 | # | Item | Phase | Complexity | Impact | Status |
 |---|------|-------|------------|--------|--------|
-| 8.1 | Pulumi Integration | 8 | Medium | Medium-High | ⏳ PLANNING |
-
-**Benefits for home server:**
-
-- Define VM templates as code
-- Recreate entire lab setup from version control
-- Test infrastructure changes before applying
-- Automated backup and disaster recovery
-- Multi-environment management (dev/staging/production VMs)
+| 1 | Task / job tracking | 1 | Medium | High | ✅ **DONE** |
+| 2 | VM Update (fix stub) | 1 | Medium | High | ✅ **DONE** |
+| 3 | Disk management | 1 | Medium | High | ✅ **DONE** |
+| 4 | VM Clone | 1 | Medium | High | ✅ **DONE** |
+| 5 | Alerting system | 2 | Medium | High | ✅ **DONE** |
+| 6 | Guest agent integration | 2 | Medium | High | ✅ **DONE** |
+| 7 | TPM 2.0 + Secure Boot | 2 | Low | High | ✅ **DONE** |
+| 8 | PCI / GPU Passthrough | 2 | High | High | 🔄 **NEXT** |
+| 9 | Reverse Proxy Core | 5 | High | Medium | ✅ **DONE** |
+| 10 | Uptime Monitoring | 5 | Medium | Medium | ✅ **DONE** |
+| 11 | GitOps Core | 8 | High | High | ⏳ PLANNING |
+| 12 | Infrastructure Reconciler | 8 | Medium | High | ⏳ PLANNING |
+| 13 | Configuration Engine | 8 | High | Very High | ⏳ PLANNING |
 
 ---
 
