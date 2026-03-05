@@ -4,7 +4,7 @@
 [![Release](https://github.com/doomedramen/lab/actions/workflows/release.yml/badge.svg)](https://github.com/doomedramen/lab/actions/workflows/release.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Go Version](https://img.shields.io/badge/Go-1.25.7-blue?logo=go)](https://go.dev/)
-[![Next.js](https://img.shields.io/static/v1?label=Next.js&message=16&color=black&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/static/v1?label=Next.js&message=16&color=blue&logo=next.js)](https://nextjs.org/)
 
 **Lab** is a modern, lightweight virtualization management platform designed for home servers. It provides a beautiful, responsive web interface to manage your virtual machines, containers, networks, and storage without the overhead of enterprise-grade hypervisors.
 
