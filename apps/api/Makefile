@@ -2,6 +2,7 @@
 
 proto:
 	cd ../../packages/proto && buf generate --template buf.gen.api.yaml
+	cd ../../packages/proto && buf generate --template buf.gen.web.yaml
 
 proto-lint:
 	cd ../../packages/proto && buf lint
