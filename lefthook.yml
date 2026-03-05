@@ -16,6 +16,7 @@ pre-commit:
 pre-push:
   parallel: false
   commands:
+    # Local tests (uncomment if you want tests to run locally)
 #    go-tests:
 #      root: "apps/api"
 #      run: go test ./...
@@ -24,3 +25,9 @@ pre-push:
 #      root: "apps/web"
 #      run: pnpm check-types
 #      glob: "*.{ts,tsx}"
+
+    # Docker-based tests (uncomment to use Docker CI for pre-push)
+#    docker-tests:
+#      run: docker-compose -f docker-compose.ci.yml test
+#      fail_text: "Docker tests failed. Run 'docker-compose -f docker-compose.ci.yml test' to debug."
+#      only_when: "files(glob='*.{go,ts,tsx,json,yaml,yml}') have changed"
