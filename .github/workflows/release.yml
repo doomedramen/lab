@@ -149,9 +149,7 @@ jobs:
   release:
     name: Publish
     runs-on: ubuntu-24.04
-    # Only run if build-linux succeeded (implicit via needs) AND we want to publish
-    if: >-
-      github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # Implicitly skips if build-linux is skipped or fails
     needs:
       - build-linux
     steps:
@@ -181,6 +179,7 @@ jobs:
 
       - name: Generate checksums
         run: |
+          mkdir -p dist
           cd dist
           sha256sum *.tar.gz 2>/dev/null > SHA256SUMS.txt || true
           cat SHA256SUMS.txt
