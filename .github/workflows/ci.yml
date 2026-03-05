@@ -147,7 +147,12 @@ jobs:
       - name: Start libvirtd
         run: |
           sudo systemctl enable --now libvirtd
-          timeout 30s bash -c 'until virsh -c qemu:///system version; do sleep 1; done'
+          sudo usermod -aG libvirt $USER
+          sudo usermod -aG kvm $USER
+          # Relax permissions on the socket for the runner user
+          sudo chmod 666 /var/run/libvirt/libvirt-sock
+          # Wait for libvirt to be ready
+          timeout 30s bash -c 'until sudo virsh -c qemu:///system version; do sleep 1; done'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -268,7 +273,12 @@ jobs:
       - name: Start libvirtd
         run: |
           sudo systemctl enable --now libvirtd
-          timeout 30s bash -c 'until virsh -c qemu:///system version; do sleep 1; done'
+          sudo usermod -aG libvirt $USER
+          sudo usermod -aG kvm $USER
+          # Relax permissions on the socket for the runner user
+          sudo chmod 666 /var/run/libvirt/libvirt-sock
+          # Wait for libvirt to be ready
+          timeout 30s bash -c 'until sudo virsh -c qemu:///system version; do sleep 1; done'
 
       - name: Run E2E tests
         env:
