@@ -1,183 +1,152 @@
-# Lab - Virtualization Management Platform
+# Lab - Modern Virtualization Management Platform
 
 [![CI](https://github.com/doomedramen/lab/actions/workflows/ci.yml/badge.svg)](https://github.com/doomedramen/lab/actions/workflows/ci.yml)
 [![Release](https://github.com/doomedramen/lab/actions/workflows/release.yml/badge.svg)](https://github.com/doomedramen/lab/actions/workflows/release.yml)
-[![License](https://img.shields.io/github/license/doomedramen/lab)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/doomedramen/lab?filename=apps/api/go.mod)](https://go.dev/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 
-A modern, lightweight virtualization management platform for home servers. Manage VMs, containers, storage, and networks through a beautiful web interface.
+**Lab** is a modern, lightweight virtualization management platform designed for home servers. It provides a beautiful, responsive web interface to manage your virtual machines, containers, networks, and storage without the overhead of enterprise-grade hypervisors.
 
-![Dashboard](./docs/screenshot.png)
+Built with performance and simplicity in mind, Lab leverages **libvirt**, **QEMU/KVM**, and **LXC** to give you full control over your hardware.
 
-## Quick Start
+---
 
-```bash
-# Clone and start development
-git clone https://github.com/doomedramen/lab.git
-cd lab
-pnpm install
-pnpm dev
-```
+## 🚀 Key Features
 
-Then open http://localhost:3000 in your browser.
+### 🖥️ VM & Container Management
+- **Full VM Lifecycle**: Create, start, stop, pause, and clone VMs with ease.
+- **Advanced Hardware**: Support for **TPM 2.0**, **Secure Boot**, and **PCI/GPU Passthrough**.
+- **LXC & Docker**: Native support for LXC containers and Docker Compose stacks.
+- **Resource Control**: Dynamically adjust CPU, memory, and boot order.
 
-## Features
+### 📊 Observability & Monitoring
+- **Real-time Metrics**: Live charts for CPU, RAM, disk, and network I/O.
+- **Uptime Monitoring**: Integrated health checks for your services with historical data.
+- **Task Tracking**: Background job monitoring with real-time status updates.
+- **Centralized Logging**: Persistent logs for all virtual machines and containers.
 
-- **VM Management**: Create, clone, snapshot, and backup VMs with a modern UI
-- **Container Support**: LXC containers and Docker Compose stacks
-- **Storage Management**: Multiple storage pools, disk resizing, ISO management
-- **Networking**: Virtual networks, firewall rules, DHCP management
-- **Live Metrics**: Real-time CPU, memory, disk, and network statistics
-- **VNC Console**: Built-in VNC console for VM access
-- **Serial Console**: WebSocket-based serial console access
-- **Alerts**: Configurable alerts for resource usage and VM state changes
-- **Authentication**: JWT-based auth with MFA support
-- **API**: Full ConnectRPC/protobuf API for automation
+### 🌐 Networking & Proxy
+- **Integrated Reverse Proxy**: Domain-based routing with automatic SSL (ACME/Certbot support).
+- **Virtual Networks**: Manage bridges, NAT networks, and firewall rules.
+- **Consoles**: Built-in high-performance **VNC** and **Serial** consoles.
 
-## Deployment
+### 🛡️ Storage & Security
+- **Storage Pools**: Manage directory, LVM, and ZFS pools.
+- **Snapshots & Backups**: Point-in-time snapshots and scheduled backups with retention policies.
+- **Security First**: JWT-based authentication with MFA support and role-based access control (RBAC).
+- **Alerting**: Configurable alerts via Email (SMTP) or Webhooks.
 
-### Production
+---
 
-Build and serve the static web UI:
+## 🛠️ Tech Stack
 
-```bash
-# Build static export
-pnpm --filter web build
+| Component | Technology |
+|-----------|------------|
+| **Frontend** | [Next.js 15](https://nextjs.org/), [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) |
+| **Backend** | [Go 1.23+](https://go.dev/), [chi](https://github.com/go-chi/chi), [ConnectRPC](https://connectrpc.com/) |
+| **API** | Protobuf / gRPC / Connect |
+| **Database** | [SQLite](https://sqlite.org/) (embedded with WAL mode) |
+| **Virtualization** | [libvirt](https://libvirt.org/), [QEMU/KVM](https://www.qemu.org/), [LXC](https://linuxcontainers.org/) |
+| **DevOps** | [pnpm](https://pnpm.io/), [Turbo](https://turbo.build/), [Playwright](https://playwright.dev/) (E2E) |
 
-# Serve with any static file server
-npx serve apps/web/out -l 3000
-```
+---
 
-### Development
-
-```bash
-# Install dependencies
-pnpm install
-
-# Start development servers
-pnpm dev
-```
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed installation instructions.
-
-## System Requirements
-
-- **OS**: Linux with libvirt (Ubuntu 22.04+, Debian 12+, Fedora 39+)
-- **CPU**: x86_64 with virtualization support (Intel VT-x / AMD-V)
-- **RAM**: 4GB minimum (8GB+ recommended)
-- **Storage**: 10GB for application + space for VMs
-
-## Development
+## ⚡ Quick Start
 
 ### Prerequisites
+- **OS**: Linux (Ubuntu 22.04+, Debian 12+, Fedora 39+, Arch)
+- **Virtualization**: Intel VT-x or AMD-V enabled in BIOS
+- **Software**: `libvirt`, `qemu-system-x86`, `pnpm`, `go`, `node`
 
-- Node.js 20+
-- pnpm 10+
-- Go 1.23+
-- libvirt (for API development)
-
-### Setup
-
+### Development
 ```bash
-# Clone repository
+# Clone the repository
 git clone https://github.com/doomedramen/lab.git
 cd lab
 
 # Install dependencies
 pnpm install
 
-# Start development servers
+# Start development servers (API & Web)
 pnpm dev
 ```
+Open **http://localhost:3000** to access the dashboard.
 
-### Build
-
+### Production Build
 ```bash
-# Build web UI
+# Build the static web UI
 pnpm --filter web build
 
-# Build API server
-cd apps/api && go build -o bin/lab-server ./cmd/server
+# Build the API server
+cd apps/api
+go build -o bin/lab-server ./cmd/server
 ```
 
-### Test
+For detailed production setup, including **systemd** service configuration, see the [Deployment Guide](./DEPLOYMENT.md).
 
-```bash
-# Run all tests
-pnpm test
+---
 
-# API unit tests
-pnpm --filter api test
+## 🏗️ Architecture
 
-# E2E tests
-pnpm --filter web test:e2e
+```mermaid
+graph TD
+    User([Web Browser]) <-->|HTTPS/ConnectRPC| WebUI[Next.js Frontend]
+    WebUI <-->|ConnectRPC| API[Go API Server]
+    API <-->|SQLite| DB[(Local DB)]
+    API <-->|libvirt| LV[libvirt Daemon]
+    LV <-->|KVM| VMs[Virtual Machines]
+    LV <-->|LXC| CT[Containers]
+    API <-->|Reverse Proxy| Internet([Public Internet])
 ```
 
-## Architecture
+---
 
-```
-┌─────────────────┐
-│  Web Browser    │
-│  (port 3000)    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Web UI         │
-│  (Next.js)      │
-│  port 3000      │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  API (Go)       │
-│  libvirt        │
-│  port 8080      │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Host libvirt   │
-│  QEMU/KVM VMs   │
-└─────────────────┘
-```
+## 🗺️ Roadmap
 
-**Components:**
-- `apps/api`: Go server with libvirt bindings
-- `apps/web`: Next.js UI (static export)
+- [x] **Phase 1**: Operational Foundation (Task tracking, VM updates, Clone, Disk management)
+- [x] **Phase 2**: Home Server Essentials (Alerting, Guest Agent, TPM 2.0, Secure Boot)
+- [x] **Phase 5**: Reverse Proxy & Uptime Monitoring (Core proxy, monitoring loop)
+- [ ] **Phase 2.4**: PCI / GPU Passthrough (In progress)
+- [ ] **Phase 3**: Management & Hardening (Host shell, Boot order, Session mgmt)
+- [ ] **Phase 4**: RBAC & Security Polish (User groups, IP whitelisting, TLS)
+- [ ] **Phase 8**: Infrastructure as Code (Pulumi integration)
 
-## Tech Stack
+See [PLAN.md](./PLAN.md) for the full roadmap and implementation details.
 
-- **Frontend**: Next.js 16, React, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Go 1.23, chi router, ConnectRPC
-- **Database**: SQLite (embedded)
-- **Virtualization**: libvirt, QEMU/KVM, LXC
-- **Build**: pnpm workspaces, Turbo
+---
 
-## Documentation
+## 📖 Documentation
 
-- [Deployment Guide](./DEPLOYMENT.md) - Installation and configuration
-- [Project Plan](./PLAN.md) - Feature roadmap and implementation status
-- [API Documentation](./apps/api/README.md) - API reference
+- [Deployment Guide](./DEPLOYMENT.md) - Systemd, manual install, and requirements.
+- [Architecture Deep Dive](./DEPLOYMENT_ARCHITECTURE.md) - Internal system design.
+- [API Reference](./apps/api/README.md) - ConnectRPC service definitions.
+- [Ideas & Vision](./IDEAS.md) - Brainstorming and future directions.
 
-## Contributing
+---
 
-Contributions are welcome! Please:
+## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please follow these steps:
+1. Fork the repo.
+2. Create a feature branch (`git checkout -b feature/cool-new-thing`).
+3. Commit your changes (`git commit -m 'Add some cool thing'`).
+4. Push to the branch (`git push origin feature/cool-new-thing`).
+5. Open a Pull Request.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details.
 
-## License
+---
 
-MIT License - see [LICENSE](./LICENSE) for details.
+## 📄 License
 
-## Acknowledgments
+This project is licensed under the **MIT License**.
 
-- [libvirt](https://libvirt.org/) - Virtualization API
-- [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/) - Inspiration for features
-- [shadcn/ui](https://ui.shadcn.com/) - UI components
-- [ConnectRPC](https://connectrpc.com/) - Type-safe API
+---
+
+## 🙏 Acknowledgments
+
+- **libvirt** for providing the industry-standard virtualization API.
+- **Proxmox VE** for being a constant inspiration for home server management.
+- **shadcn/ui** for the beautiful UI primitives.
+- **ConnectRPC** for making type-safe APIs effortless.
