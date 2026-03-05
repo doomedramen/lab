@@ -36,21 +36,17 @@ permissions:
   packages: write
 
 jobs:
-  trigger-check:
-    name: Check trigger conditions
-    runs-on: ubuntu-24.04
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success'
-    steps:
-      - name: Fail if CI did not succeed
-        run: |
-          echo "CI workflow did not succeed. Aborting release."
-          exit 1
-
   build-linux:
     name: linux-amd64
-    if: github.event_name == 'workflow_run' || (github.event_name != 'workflow_dispatch' || github.event.inputs.build_linux == 'true')
+    # Only run if:
+    # 1. It's a tag push
+    # 2. It's manual dispatch (and build_linux is true)
+    # 3. It's a workflow_run AND the CI workflow succeeded
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_linux == 'true') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-24.04
-    needs: trigger-check
     steps:
       - uses: actions/checkout@v4
         with:
@@ -153,9 +149,9 @@ jobs:
   release:
     name: Publish
     runs-on: ubuntu-24.04
+    # Only run if build-linux succeeded (implicit via needs) AND we want to publish
     if: >-
-      always() && !failure() && !cancelled() &&
-      (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_release == 'true' || github.event_name == 'workflow_run')
+      github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     needs:
       - build-linux
     steps:
