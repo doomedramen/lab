@@ -289,7 +289,7 @@ jobs:
           LIBVIRT_URI: "qemu:///system"
           NEXT_PUBLIC_API_URL: "http://localhost:8080"
         run: |
-          pnpm test:e2e
+          pnpm --filter web test:e2e
         continue-on-error: true
 
       - name: Upload test results
