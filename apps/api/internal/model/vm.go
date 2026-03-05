@@ -150,7 +150,7 @@ type VMCreateRequest struct {
 // VMUpdateRequest represents the request body for updating a VM
 // Fields are pointers to distinguish between "not set" and "set to zero/false"
 // Live updates (no restart required): Name, Description, Tags
-// Offline updates (VM must be stopped): CPUSockets, CPUCores, Memory, Agent, NestedVirt, StartOnBoot, TPM, SecureBoot
+// Offline updates (VM must be stopped): CPUSockets, CPUCores, Memory, Agent, NestedVirt, StartOnBoot, TPM, SecureBoot, PCIDevices
 type VMUpdateRequest struct {
 	Name        *string  `json:"name,omitempty"`
 	Description *string  `json:"description,omitempty"`
@@ -167,6 +167,9 @@ type VMUpdateRequest struct {
 	StartOnBoot *bool `json:"startOnBoot,omitempty"`
 	TPM         *bool `json:"tpm,omitempty"`        // TPM 2.0 device (requires OVMF)
 	SecureBoot  *bool `json:"secureBoot,omitempty"` // Secure Boot (requires OVMF)
+
+	// PCI devices - require VM to be stopped
+	PCIDevices []PCIDevice `json:"pciDevices,omitempty"` // PCI addresses to pass through
 
 	// Boot order - devices to boot from in priority order (e.g., ["hd", "cdrom", "network"])
 	BootOrder []string `json:"bootOrder,omitempty"`

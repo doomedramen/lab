@@ -233,3 +233,91 @@ func TestResolveArchPlaceholder(t *testing.T) {
 		}
 	}
 }
+
+func TestModelVMToProto_WithPCIDevices(t *testing.T) {
+	vm := &model.VM{
+		ID:          "vm-123",
+		VMID:        1,
+		Name:        "test-vm-with-gpu",
+		Node:        "node-1",
+		Status:      model.VMStatusStopped,
+		CPU:         model.CPUInfoPartial{Used: 0, Sockets: 1, Cores: 2},
+		Memory:      model.MemoryInfo{Used: 0, Total: 8.0},
+		Disk:        model.DiskInfo{Used: 0, Total: 100.0},
+		Uptime:      "0d0h0m",
+		OS:          model.OSConfig{Type: model.OSTypeLinux, Version: "ubuntu-22.04"},
+		Arch:        "x86_64",
+		PCIDevices: []model.PCIDevice{
+			{
+				Address:     "0000:01:00.0",
+				VendorID:    "10de",
+				VendorName:  "NVIDIA Corporation",
+				ProductID:   "1b80",
+				ProductName: "GP104 [GeForce GTX 1080]",
+				Driver:      "vfio-pci",
+				IOMMUGroup:  1,
+				Class:       "0300",
+				ClassName:   "VGA compatible controller",
+			},
+		},
+	}
+
+	p := modelVMToProto(vm)
+
+	if len(p.PciDevices) != 1 {
+		t.Fatalf("PciDevices: expected 1, got %d", len(p.PciDevices))
+	}
+
+	pciDev := p.PciDevices[0]
+	if pciDev.Address != "0000:01:00.0" {
+		t.Errorf("PCI Address: got %q, want 0000:01:00.0", pciDev.Address)
+	}
+	if pciDev.VendorId != "10de" {
+		t.Errorf("VendorId: got %q, want 10de", pciDev.VendorId)
+	}
+	if pciDev.VendorName != "NVIDIA Corporation" {
+		t.Errorf("VendorName: got %q, want NVIDIA Corporation", pciDev.VendorName)
+	}
+	if pciDev.ProductId != "1b80" {
+		t.Errorf("ProductId: got %q, want 1b80", pciDev.ProductId)
+	}
+	if pciDev.ProductName != "GP104 [GeForce GTX 1080]" {
+		t.Errorf("ProductName: got %q", pciDev.ProductName)
+	}
+	if pciDev.Driver != "vfio-pci" {
+		t.Errorf("Driver: got %q, want vfio-pci", pciDev.Driver)
+	}
+	if pciDev.IommuGroup != 1 {
+		t.Errorf("IommuGroup: got %d, want 1", pciDev.IommuGroup)
+	}
+	if pciDev.Class != "0300" {
+		t.Errorf("Class: got %q, want 0300", pciDev.Class)
+	}
+	if pciDev.ClassName != "VGA compatible controller" {
+		t.Errorf("ClassName: got %q, want VGA compatible controller", pciDev.ClassName)
+	}
+}
+
+func TestProtoCreateVMRequestToModel_WithPCIDevices(t *testing.T) {
+	req := &labv1.CreateVMRequest{
+		Name:              "test-vm-with-gpu",
+		Node:              "node-1",
+		CpuCores:          2,
+		MemoryGb:          4.0,
+		DiskGb:            50.0,
+		PciDeviceAddresses: []string{"0000:01:00.0", "0000:01:00.1"},
+	}
+
+	result := protoCreateVMRequestToModel(req)
+
+	if len(result.PCIDevices) != 2 {
+		t.Fatalf("PCIDevices: expected 2, got %d", len(result.PCIDevices))
+	}
+
+	if result.PCIDevices[0].Address != "0000:01:00.0" {
+		t.Errorf("PCIDevices[0].Address: got %q, want 0000:01:00.0", result.PCIDevices[0].Address)
+	}
+	if result.PCIDevices[1].Address != "0000:01:00.1" {
+		t.Errorf("PCIDevices[1].Address: got %q, want 0000:01:00.1", result.PCIDevices[1].Address)
+	}
+}

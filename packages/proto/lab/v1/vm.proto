@@ -169,6 +169,9 @@ message UpdateVMRequest {
   bool tpm = 11;                    // TPM 2.0 device (requires OVMF)
   bool secure_boot = 12;            // Secure Boot (requires OVMF)
   repeated string boot_order = 13;  // Boot device priority (e.g., ["hd", "cdrom", "network"])
+
+  // PCI Passthrough (VM must be stopped)
+  repeated string pci_device_addresses = 14; // PCI addresses to pass through (e.g., "0000:01:00.0")
 }
 
 message UpdateVMResponse {

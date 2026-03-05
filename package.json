@@ -1,6 +1,6 @@
 {
   "name": "lab",
-  "version": "0.0.17",
+  "version": "0.0.19",
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",

@@ -632,6 +632,9 @@ func (r *VMRepository) Update(_ context.Context, vmid int, req *model.VMUpdateRe
 		if len(req.BootOrder) > 0 {
 			offlineChanges = append(offlineChanges, "boot order")
 		}
+		if len(req.PCIDevices) > 0 {
+			offlineChanges = append(offlineChanges, "PCI devices")
+		}
 
 		if len(offlineChanges) > 0 {
 			return nil, fmt.Errorf("VM must be stopped to change: %s", strings.Join(offlineChanges, ", "))
@@ -813,7 +816,7 @@ func (r *VMRepository) Update(_ context.Context, vmid int, req *model.VMUpdateRe
 			if domainXML.OS != nil && domainXML.OS.Loader != nil {
 				// Update loader secure attribute
 				domainXML.OS.Loader.Secure = boolToStr(*req.SecureBoot)
-				
+
 				// Update NVRAM template if secure boot is enabled
 				if domainXML.OS.NVRam != nil {
 					if *req.SecureBoot {
@@ -823,6 +826,47 @@ func (r *VMRepository) Update(_ context.Context, vmid int, req *model.VMUpdateRe
 					}
 				}
 			}
+		}
+
+		// PCI passthrough devices
+		if len(req.PCIDevices) > 0 {
+			if domainXML.Devices == nil {
+				domainXML.Devices = &libvirtxml.DomainDeviceList{}
+			}
+
+			// Remove existing PCI hostdevs
+			var newHostdevs []libvirtxml.DomainHostdev
+			for _, h := range domainXML.Devices.Hostdevs {
+				// Keep non-PCI hostdevs
+				if h.SubsysPCI == nil {
+					newHostdevs = append(newHostdevs, h)
+				}
+			}
+
+			// Add new PCI devices
+			for _, pciDev := range req.PCIDevices {
+				domain, bus, slot, function := parsePCIAddress(pciDev.Address)
+				domainUint := parseHexToUint(domain)
+				busUint := parseHexToUint(bus)
+				slotUint := parseHexToUint(slot)
+				funcUint := parseHexToUint(function)
+
+				newHostdevs = append(newHostdevs, libvirtxml.DomainHostdev{
+					Managed: "yes",
+					SubsysPCI: &libvirtxml.DomainHostdevSubsysPCI{
+						Source: &libvirtxml.DomainHostdevSubsysPCISource{
+							Address: &libvirtxml.DomainAddressPCI{
+								Domain:   &domainUint,
+								Bus:      &busUint,
+								Slot:     &slotUint,
+								Function: &funcUint,
+							},
+						},
+					},
+				})
+			}
+
+			domainXML.Devices.Hostdevs = newHostdevs
 		}
 	}
 
@@ -1436,6 +1480,20 @@ func (r *VMRepository) parseDomainXML(xmlDesc string, vm *model.VM) {
 			}
 			vm.Network = append(vm.Network, nc)
 		}
+
+		// PCI passthrough devices — extract from hostdev elements
+		vm.PCIDevices = []model.PCIDevice{}
+		for _, hostdev := range domain.Devices.Hostdevs {
+			// Only process PCI devices (hostdev with SubsysPCI set)
+			if hostdev.SubsysPCI != nil && hostdev.SubsysPCI.Source != nil && hostdev.SubsysPCI.Source.Address != nil {
+				addr := hostdev.SubsysPCI.Source.Address
+				// Format PCI address: domain:bus:slot.function (e.g., 0000:01:00.0)
+				pciAddr := formatPCIAddressFromLibvirt(addr)
+				vm.PCIDevices = append(vm.PCIDevices, model.PCIDevice{
+					Address: pciAddr,
+				})
+			}
+		}
 	}
 
 	// Tags from metadata
@@ -1845,4 +1903,37 @@ func parsePCIAddress(addr string) (domain, bus, slot, function string) {
 		}
 	}
 	return
+}
+
+// formatPCIAddressFromLibvirt converts libvirt DomainAddressPCI to standard PCI address format
+// Output format: 0000:01:00.0
+func formatPCIAddressFromLibvirt(addr *libvirtxml.DomainAddressPCI) string {
+	domain := uint(0)
+	bus := uint(0)
+	slot := uint(0)
+	function := uint(0)
+
+	if addr.Domain != nil {
+		domain = *addr.Domain
+	}
+	if addr.Bus != nil {
+		bus = *addr.Bus
+	}
+	if addr.Slot != nil {
+		slot = *addr.Slot
+	}
+	if addr.Function != nil {
+		function = *addr.Function
+	}
+
+	return fmt.Sprintf("%04x:%02x:%02x.%x", domain, bus, slot, function)
+}
+
+// parseHexToUint parses a hex string to uint, returning 0 on error
+func parseHexToUint(s string) uint {
+	s = strings.TrimPrefix(s, "0x")
+	s = strings.TrimPrefix(s, "0X")
+	var result uint
+	fmt.Sscanf(s, "%x", &result)
+	return result
 }

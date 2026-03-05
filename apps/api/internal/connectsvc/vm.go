@@ -190,9 +190,17 @@ func (s *VmServiceServer) UpdateVM(
 	modelReq.StartOnBoot = &req.Msg.StartOnBoot
 	modelReq.TPM = &req.Msg.Tpm
 	modelReq.SecureBoot = &req.Msg.SecureBoot
-	
+
 	if len(req.Msg.BootOrder) > 0 {
 		modelReq.BootOrder = req.Msg.BootOrder
+	}
+
+	// Convert PCI device addresses to PCIDevice structs
+	if len(req.Msg.PciDeviceAddresses) > 0 {
+		modelReq.PCIDevices = make([]model.PCIDevice, len(req.Msg.PciDeviceAddresses))
+		for i, addr := range req.Msg.PciDeviceAddresses {
+			modelReq.PCIDevices[i] = model.PCIDevice{Address: addr}
+		}
 	}
 
 	vm, err := s.svc.Update(ctx, int(req.Msg.Vmid), modelReq)
@@ -540,6 +548,22 @@ func modelVMStatusToProto(s model.VMStatus) labv1.VmStatus {
 }
 
 func modelVMToProto(v *model.VM) *labv1.VM {
+	// Convert PCI devices to proto
+	pciDevices := make([]*labv1.PCIDevice, len(v.PCIDevices))
+	for i, dev := range v.PCIDevices {
+		pciDevices[i] = &labv1.PCIDevice{
+			Address:     dev.Address,
+			VendorId:    dev.VendorID,
+			VendorName:  dev.VendorName,
+			ProductId:   dev.ProductID,
+			ProductName: dev.ProductName,
+			Driver:      dev.Driver,
+			IommuGroup:  int32(dev.IOMMUGroup),
+			Class:       dev.Class,
+			ClassName:   dev.ClassName,
+		}
+	}
+
 	return &labv1.VM{
 		Id:          v.ID,
 		Vmid:        int32(v.VMID),
@@ -565,11 +589,18 @@ func modelVMToProto(v *model.VM) *labv1.VM {
 		Agent:       v.Agent,
 		Tpm:         v.TPM,
 		SecureBoot:  v.SecureBoot,
+		PciDevices:  pciDevices,
 		BootOrder:   v.BootOrder,
 	}
 }
 
 func protoCreateVMRequestToModel(r *labv1.CreateVMRequest) *model.VMCreateRequest {
+	// Convert PCI device addresses to PCIDevice structs
+	var pciDevices []model.PCIDevice
+	for _, addr := range r.PciDeviceAddresses {
+		pciDevices = append(pciDevices, model.PCIDevice{Address: addr})
+	}
+
 	return &model.VMCreateRequest{
 		Name:        r.Name,
 		Node:        r.Node,
@@ -593,6 +624,7 @@ func protoCreateVMRequestToModel(r *labv1.CreateVMRequest) *model.VMCreateReques
 		Network:     protoNetworkConfigsToModel(r.Network),
 		TPM:         r.Tpm,
 		SecureBoot:  r.SecureBoot,
+		PCIDevices:  pciDevices,
 		BootOrder:   r.BootOrder,
 	}
 }
