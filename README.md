@@ -54,6 +54,10 @@ Built with performance and simplicity in mind, Lab leverages **libvirt**, **QEMU
 
 ## ⚡ Quick Start
 
+### Installation Guides
+
+**Ubuntu/Debian users:** See the complete [Installation Guide](docs/installation/UBUNTU_DEBIAN.md) for step-by-step instructions.
+
 ### Prerequisites
 - **OS**: Linux (Ubuntu 22.04+, Debian 12+, Fedora 39+, Arch) or macOS (M1/M2/M3, Intel)
 - **Virtualization**: Intel VT-x or AMD-V enabled in BIOS

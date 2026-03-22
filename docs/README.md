@@ -8,12 +8,21 @@ Welcome to the Lab project documentation. This index organizes all documentation
 
 **New to Lab?** Start here:
 1. **[README.md](../README.md)** — Project overview and quick start
-2. **[Development Guide](development/DEVELOPMENT.md)** — Set up your development environment
-3. **[Deployment Guide](deployment/DEPLOYMENT.md)** — Deploy to production
+2. **[Installation Guide](installation/UBUNTU_DEBIAN.md)** — Install on Ubuntu/Debian
+3. **[Development Guide](development/DEVELOPMENT.md)** — Set up your development environment
+4. **[Deployment Guide](deployment/DEPLOYMENT.md)** — Deploy to production
 
 ---
 
 ## 📂 Documentation Categories
+
+### Installation
+
+Platform-specific installation guides.
+
+| Document | Description |
+|----------|-------------|
+| **[UBUNTU_DEBIAN.md](installation/UBUNTU_DEBIAN.md)** | Complete installation guide for Ubuntu 22.04+ and Debian 12+ |
 
 ### Development
 
@@ -117,6 +126,7 @@ When updating code, check if related documentation needs updates:
 
 | Category | Count | Status |
 |----------|-------|--------|
+| Installation | 1 | ✅ Complete |
 | Development | 3 | ✅ Complete |
 | Deployment | 3 | ✅ Complete |
 | API | 6 | ✅ Complete |
@@ -124,6 +134,6 @@ When updating code, check if related documentation needs updates:
 | Project | 4 | ✅ Complete |
 | Web | 1 | ✅ Complete |
 | **Root Level** | **1** | **✅ Complete** |
-| **Total** | **19** | **✅ Current** |
+| **Total** | **20** | **✅ Current** |
 
-**Last updated:** March 9, 2026
+**Last updated:** March 22, 2026
