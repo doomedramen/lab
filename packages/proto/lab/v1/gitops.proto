@@ -1,0 +1,190 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// GitOpsService provides GitOps configuration and management
+service GitOpsService {
+  // GitOps Configs
+  rpc ListGitOpsConfigs(ListGitOpsConfigsRequest) returns (ListGitOpsConfigsResponse);
+  rpc GetGitOpsConfig(GetGitOpsConfigRequest) returns (GetGitOpsConfigResponse);
+  rpc CreateGitOpsConfig(CreateGitOpsConfigRequest) returns (CreateGitOpsConfigResponse);
+  rpc UpdateGitOpsConfig(UpdateGitOpsConfigRequest) returns (UpdateGitOpsConfigResponse);
+  rpc DeleteGitOpsConfig(DeleteGitOpsConfigRequest) returns (DeleteGitOpsConfigResponse);
+  rpc SyncGitOpsConfig(SyncGitOpsConfigRequest) returns (SyncGitOpsConfigResponse);
+  
+  // GitOps Resources
+  rpc ListGitOpsResources(ListGitOpsResourcesRequest) returns (ListGitOpsResourcesResponse);
+  rpc GetGitOpsResource(GetGitOpsResourceRequest) returns (GetGitOpsResourceResponse);
+  
+  // Sync Logs
+  rpc GetGitOpsSyncLogs(GetGitOpsSyncLogsRequest) returns (GetGitOpsSyncLogsResponse);
+}
+
+// GitOpsConfig represents a GitOps configuration
+message GitOpsConfig {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string git_url = 4;
+  string git_branch = 5;
+  string git_path = 6;
+  int32 sync_interval = 7;  // seconds
+  string last_sync = 8;
+  string last_sync_hash = 9;
+  string status = 10;  // Healthy, OutOfSync, Failed, Pending
+  string status_message = 11;
+  bool enabled = 12;
+  string created_at = 13;
+  string updated_at = 14;
+  string next_sync = 15;
+  int32 sync_retries = 16;
+  int32 max_sync_retries = 17;
+}
+
+// GitOpsResource represents a parsed resource from Git manifest
+message GitOpsResource {
+  string id = 1;
+  string config_id = 2;
+  string kind = 3;  // VirtualMachine, Container, Network, etc.
+  string name = 4;
+  string namespace = 5;
+  string manifest_path = 6;
+  string manifest_hash = 7;
+  string status = 8;
+  string status_message = 9;
+  string last_applied = 10;
+  string last_diff = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+// GitOpsSyncLog represents a sync operation log
+message GitOpsSyncLog {
+  string id = 1;
+  string config_id = 2;
+  string start_time = 3;
+  string end_time = 4;
+  int64 duration = 5;  // seconds
+  string status = 6;
+  string message = 7;
+  string commit_hash = 8;
+  int32 resources_scanned = 9;
+  int32 resources_created = 10;
+  int32 resources_updated = 11;
+  int32 resources_deleted = 12;
+  int32 resources_failed = 13;
+}
+
+// ListGitOpsConfigsRequest
+message ListGitOpsConfigsRequest {
+  bool enabled_only = 1;
+}
+
+// ListGitOpsConfigsResponse
+message ListGitOpsConfigsResponse {
+  repeated GitOpsConfig configs = 1;
+  int32 total = 2;
+}
+
+// GetGitOpsConfigRequest
+message GetGitOpsConfigRequest {
+  string id = 1;
+}
+
+// GetGitOpsConfigResponse
+message GetGitOpsConfigResponse {
+  GitOpsConfig config = 1;
+}
+
+// CreateGitOpsConfigRequest
+message CreateGitOpsConfigRequest {
+  string name = 1;
+  string description = 2;
+  string git_url = 3;
+  string git_branch = 4;
+  string git_path = 5;
+  int32 sync_interval = 6;
+  bool enabled = 7;
+  int32 max_sync_retries = 8;
+}
+
+// CreateGitOpsConfigResponse
+message CreateGitOpsConfigResponse {
+  GitOpsConfig config = 1;
+}
+
+// UpdateGitOpsConfigRequest
+message UpdateGitOpsConfigRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string git_url = 4;
+  string git_branch = 5;
+  string git_path = 6;
+  int32 sync_interval = 7;
+  bool enabled = 8;
+  int32 max_sync_retries = 9;
+}
+
+// UpdateGitOpsConfigResponse
+message UpdateGitOpsConfigResponse {
+  GitOpsConfig config = 1;
+}
+
+// DeleteGitOpsConfigRequest
+message DeleteGitOpsConfigRequest {
+  string id = 1;
+}
+
+// DeleteGitOpsConfigResponse
+message DeleteGitOpsConfigResponse {
+}
+
+// SyncGitOpsConfigRequest
+message SyncGitOpsConfigRequest {
+  string id = 1;
+}
+
+// SyncGitOpsConfigResponse
+message SyncGitOpsConfigResponse {
+  GitOpsSyncLog sync_log = 1;
+}
+
+// ListGitOpsResourcesRequest
+message ListGitOpsResourcesRequest {
+  string config_id = 1;
+  string kind = 2;
+  string status = 3;
+}
+
+// ListGitOpsResourcesResponse
+message ListGitOpsResourcesResponse {
+  repeated GitOpsResource resources = 1;
+  int32 total = 2;
+}
+
+// GetGitOpsResourceRequest
+message GetGitOpsResourceRequest {
+  string id = 1;
+}
+
+// GetGitOpsResourceResponse
+message GetGitOpsResourceResponse {
+  GitOpsResource resource = 1;
+}
+
+// GetGitOpsSyncLogsRequest
+message GetGitOpsSyncLogsRequest {
+  string config_id = 1;
+  int32 limit = 2;
+}
+
+// GetGitOpsSyncLogsResponse
+message GetGitOpsSyncLogsResponse {
+  repeated GitOpsSyncLog logs = 1;
+  int32 total = 2;
+}

@@ -1,0 +1,256 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 1.0.0)"
+        required: false
+        default: ""
+      build_linux:
+        description: "Build Linux binary (glibc)"
+        type: boolean
+        required: false
+        default: true
+      publish_release:
+        description: "Publish GitHub Release"
+        type: boolean
+        required: false
+        default: true
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  check-ci:
+    name: Check CI Success
+    runs-on: ubuntu-24.04
+    # This job runs if it's a workflow_run event.
+    # It will fail if the CI workflow did not succeed.
+    if: github.event_name == 'workflow_run'
+    steps:
+      - name: Verify CI conclusion
+        if: github.event.workflow_run.conclusion != 'success'
+        run: |
+          echo "CI workflow failed with status: ${{ github.event.workflow_run.conclusion }}"
+          exit 1
+      - name: CI succeeded
+        run: echo "CI workflow succeeded."
+
+  build-linux:
+    name: linux-amd64
+    needs: [check-ci]
+    # This job runs if:
+    # 1. CI check passed (via needs)
+    # 2. OR it's NOT a workflow_run event (e.g. push or manual)
+    if: |
+      always() && 
+      (needs.check-ci.result == 'success' || needs.check-ci.result == 'skipped') &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.build_linux == 'true')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install libvirt and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            pkg-config \
+            gcc \
+            libc6-dev
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+          cache: true
+
+      - name: Install proto tools
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          elif [ -f VERSION ]; then
+            VERSION="$(cat VERSION)"
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and Package
+        env:
+          CGO_ENABLED: 1
+          VERSION: ${{ steps.version.outputs.version }}
+          NEXT_PUBLIC_API_URL: ""
+        run: |
+          # 1. Generate Proto
+          cd apps/api
+          make proto
+          
+          # 2. Build Web UI
+          cd ../web
+          pnpm build
+          
+          # 3. Embed and Build API
+          cd ../api
+          rm -rf internal/router/web || true
+          mkdir -p internal/router/web
+          cp -r ../web/out/* internal/router/web/
+          
+          go build \
+            -ldflags="-s -w -X main.version=${VERSION}" \
+            -o lab-server-linux-amd64 \
+            ./cmd/server
+          
+          # 4. Archive
+          tar -czf lab-server-linux-amd64.tar.gz lab-server-linux-amd64
+          sha256sum lab-server-linux-amd64.tar.gz > lab-server-linux-amd64.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64
+          path: |
+            apps/api/lab-server-linux-amd64
+            apps/api/lab-server-linux-amd64.tar.gz
+            apps/api/lab-server-linux-amd64.tar.gz.sha256
+          retention-days: 1
+
+  release:
+    name: Publish
+    runs-on: ubuntu-24.04
+    needs: [build-linux]
+    if: |
+      always() &&
+      needs.build-linux.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.publish_release == 'true')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          elif [ -f VERSION ]; then
+            VERSION="$(cat VERSION)"
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Generate checksums
+        run: |
+          mkdir -p dist
+          cd dist
+          if ls *.tar.gz 1> /dev/null 2>&1; then
+            sha256sum *.tar.gz > SHA256SUMS.txt
+          else
+            touch SHA256SUMS.txt
+          fi
+          cat SHA256SUMS.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Lab v${{ steps.version.outputs.version }}
+          body: |
+            ## Lab Virtualization Platform v${{ steps.version.outputs.version }}
+
+            A modern, lightweight virtualization management platform for home servers.
+
+            ### 📦 Downloads
+
+            #### Single Binary (Linux x86_64)
+            - **lab-server-linux-amd64.tar.gz** - Pre-built binary with embedded web UI
+            - **SHA256**: See `SHA256SUMS.txt`
+
+            ### 🚀 Quick Start
+
+            #### Using Binary
+            ```bash
+            # Download and extract
+            tar -xzf lab-server-linux-amd64.tar.gz
+            
+            # Run
+            sudo ./lab-server-linux-amd64
+            ```
+
+            ### 📋 System Requirements
+            - **OS**: Linux (Ubuntu 22.04+, Debian 12+, Fedora 39+)
+            - **CPU**: x86_64 with virtualization support (Intel VT-x / AMD-V)
+            - **RAM**: 4GB minimum (8GB+ recommended)
+            - **Dependencies**: libvirt, QEMU/KVM
+
+            ### 📖 Documentation
+            - [Deployment Guide](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT.md)
+            - [Systemd Deployment](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT_SYSTEMD.md)
+            - [Architecture](https://github.com/${{ github.repository }}/blob/main/DEPLOYMENT_ARCHITECTURE.md)
+
+            ---
+            Generated by GitHub Actions.
+          files: |
+            dist/*
+          generate_release_notes: true
+          make_latest: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          prerelease: ${{ contains(github.ref, '-rc.') || contains(github.ref, '-beta.') || contains(github.ref, '-alpha.') }}
+
+      - name: Post-release message
+        run: |
+          echo "✅ Release v${{ steps.version.outputs.version }} published successfully!"

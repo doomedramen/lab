@@ -1,0 +1,71 @@
+# Node modules
+node_modules/
+apps/*/node_modules/
+packages/*/node_modules/
+
+# pnpm store (causes permission issues in Docker)
+.pnpm-store/
+apps/*/.pnpm-store/
+packages/*/.pnpm-store/
+
+# Generated code (will be generated in Docker)
+apps/api/gen/
+apps/web/lib/gen/
+
+# Build outputs
+apps/api/bin/
+apps/api/lab-server*
+apps/web/out/
+apps/web/.next/
+apps/web/build/
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Test and coverage
+coverage.out
+coverage.html
+apps/api/coverage.out
+apps/api/coverage.html
+apps/web/playwright-report/
+apps/web/test-results/
+
+# Logs
+*.log
+*.log.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Docker files (don't need in build context)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI files
+lefthook.yml

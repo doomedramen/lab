@@ -1,0 +1,95 @@
+# Full Build - API server with embedded web UI
+# Usage: docker build --platform linux/amd64 -f Dockerfile.build -t lab-build . && docker run --rm -v $(pwd)/apps/api/bin:/output lab-build
+# IMPORTANT: Always build as linux/amd64 for CI consistency
+FROM --platform=linux/amd64 ubuntu:24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/root/go/bin:/usr/local/go/bin:/root/.nvm/versions/node/v22.0.0/bin:${PATH}"
+ENV GOVERSION="1.25.7"
+ENV NODEVERSION="22"
+ENV NVM_DIR="/root/.nvm"
+ENV CGO_ENABLED="1"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    make \
+    gcc \
+    libc6-dev \
+    pkg-config \
+    libvirt-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go
+RUN wget -O go.tar.gz "https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz" \
+    && rm -rf /usr/local/go \
+    && tar -C /usr/local -xzf go.tar.gz \
+    && rm go.tar.gz
+
+# Install Node.js via nvm, setup PATH, and install pnpm all in one layer
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && \
+    bash -c "source $NVM_DIR/nvm.sh && \
+    nvm install ${NODEVERSION} && \
+    nvm use 22 && \
+    nvm alias default ${NODEVERSION} && \
+    npm install -g pnpm"
+
+# Setup PATH for subsequent layers (exact node version installed by nvm)
+ENV NVM_DIR="/root/.nvm"
+ENV PATH="/root/.nvm/versions/node/v22.22.1/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json ./apps/api/
+COPY apps/api/go.mod apps/api/go.sum ./apps/api/
+COPY packages/ ./packages/
+
+# Install dependencies (ignore scripts to avoid lefthook git issues)
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Download Go dependencies
+RUN cd apps/api && go mod download
+
+# Copy source code
+COPY . .
+
+# Generate proto files
+RUN cd apps/api && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+RUN apt-get update && apt-get install -y unzip && rm -rf /var/lib/apt/lists/*
+RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf && \
+    chmod +x /usr/local/bin/buf
+RUN cd packages/proto && buf generate --template buf.gen.api.yaml
+RUN cd packages/proto && buf generate --template buf.gen.web.yaml
+
+# Build web UI
+ENV NEXT_PUBLIC_API_URL=""
+RUN pnpm --filter web build
+
+# Build API server with embedded web
+RUN cd apps/api && \
+    rm -rf internal/router/web || true && \
+    mkdir -p internal/router/web && \
+    cp -r ../web/out/* internal/router/web/ && \
+    go build -ldflags="-s -w -X main.version=docker" -o lab-server ./cmd/server
+
+# Final stage - minimal runtime
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libvirt-clients \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /app/apps/api/lab-server /app/lab-server
+RUN chmod +x /app/lab-server
+
+CMD ["/app/lab-server", "--help"]

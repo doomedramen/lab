@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+service NodeService {
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+  rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
+  rpc RebootNode(NodeActionRequest) returns (ActionResponse);
+  rpc ShutdownNode(NodeActionRequest) returns (ActionResponse);
+  rpc GetHostShellToken(GetHostShellTokenRequest) returns (GetHostShellTokenResponse);
+}
+
+// NodeStatus represents the operational status of a node
+enum NodeStatus {
+  NODE_STATUS_UNSPECIFIED = 0;
+  NODE_STATUS_ONLINE = 1;
+  NODE_STATUS_OFFLINE = 2;
+  NODE_STATUS_MAINTENANCE = 3;
+}
+
+message Node {
+  string id = 1;
+  string name = 2;
+  NodeStatus status = 3;
+  string ip = 4;
+  CpuInfo cpu = 5;
+  MemoryInfo memory = 6;
+  DiskInfo disk = 7;
+  string uptime = 8;
+  string kernel = 9;
+  string version = 10;
+  int32 vms = 11;
+  int32 containers = 12;
+  string cpu_model = 13;
+  LoadAvg load_avg = 14;
+  double network_in = 15;
+  double network_out = 16;
+  string arch = 17;
+  bool iommu_available = 18;  // IOMMU/VT-d enabled for PCI passthrough
+  bool vfio_available = 19;   // VFIO kernel modules loaded
+}
+
+message ListNodesRequest {}
+
+message ListNodesResponse {
+  repeated Node nodes = 1;
+}
+
+message GetNodeRequest {
+  string id = 1;
+}
+
+message GetNodeResponse {
+  Node node = 1;
+}
+
+message NodeActionRequest {
+  string id = 1;
+}
+
+message GetHostShellTokenRequest {
+  string node_id = 1;
+}
+
+message GetHostShellTokenResponse {
+  string token = 1;
+}

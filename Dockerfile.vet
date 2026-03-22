@@ -1,0 +1,63 @@
+# Go vet - Static analysis
+# Usage: docker build --platform linux/amd64 -f Dockerfile.vet -t lab-vet . && docker run --rm lab-vet
+# IMPORTANT: Always build as linux/amd64 for CI consistency
+FROM --platform=linux/amd64 ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/root/go/bin:/usr/local/go/bin:${PATH}"
+ENV GOVERSION="1.25.7"
+ENV GOCACHE="/tmp/go-build"
+ENV GOMODCACHE="/tmp/go-mod"
+
+# Install system dependencies including libvirt
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    make \
+    gcc \
+    libc6-dev \
+    pkg-config \
+    libvirt-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go (always amd64 for CI consistency)
+RUN wget -O go.tar.gz "https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz" && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf go.tar.gz && \
+    rm go.tar.gz
+
+WORKDIR /app
+
+# Copy ONLY go.mod and go.sum first
+COPY apps/api/go.mod apps/api/go.sum ./apps/api/
+
+# Download dependencies (this layer can be cached)
+RUN cd apps/api && go mod download
+
+# Copy EVERYTHING else
+COPY . .
+
+# Install protoc and buf for proto generation
+RUN apt-get update && apt-get install -y unzip && rm -rf /var/lib/apt/lists/*
+RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf && \
+    chmod +x /usr/local/bin/buf
+
+# Generate proto files
+RUN cd apps/api && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest && \
+    cd ../.. && \
+    cd packages/proto && buf generate --template buf.gen.api.yaml
+
+# CRITICAL: Force completely fresh Go compilation
+ENV GOCACHE=/tmp/gocache-new
+ENV GOMODCACHE=/tmp/gomodcache-new
+RUN rm -rf /tmp/gocache-* /tmp/gomodcache-* /root/go/pkg/mod /root/.cache/go-build
+RUN mkdir -p $GOCACHE $GOMODCACHE
+
+# Run go vet on all packages
+WORKDIR /app/apps/api
+RUN go vet ./...
+
+CMD ["echo", "go vet completed successfully"]

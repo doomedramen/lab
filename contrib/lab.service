@@ -1,0 +1,39 @@
+[Unit]
+Description=Lab Virtualization Platform
+Documentation=https://github.com/doomedramen/lab
+After=network.target libvirtd.service
+Wants=libvirtd.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# Path to binary (adjust if installed elsewhere)
+ExecStart=/usr/local/bin/lab-server --config /etc/lab/config.yaml
+
+# Environment
+Environment="LAB_ENV=production"
+Environment="LAB_CONFIG=/etc/lab/config.yaml"
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+# Allow libvirt access
+ReadWritePaths=/var/lib/lab /var/lib/libvirt/images
+ReadOnlyPaths=/var/run/libvirt
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lab
+
+[Install]
+WantedBy=multi-user.target

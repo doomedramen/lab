@@ -1,0 +1,332 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "release-*"
+  pull_request:
+    branches:
+      - main
+      - "release-*"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+          cache: true
+
+      - name: Install proto tools
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate proto code
+        run: |
+          cd apps/api
+          make proto
+
+      - name: Upload api gen code
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-gen
+          path: apps/api/gen/
+          retention-days: 1
+
+      - name: Upload web gen code
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen/
+          retention-days: 1
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download api gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Download web gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run linters
+        run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format --check
+
+      - name: Check dependency versions
+        run: pnpm syncpack:lint || true
+
+  vet:
+    name: Go Vet
+    runs-on: ubuntu-24.04
+    needs: prepare
+    env:
+      GOPRIVATE: "github.com/doomedramen/lab"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download api gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache: false
+
+      - name: Install libvirt development files
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-dev pkg-config
+
+      - name: Run go vet
+        run: |
+          cd apps/api
+          go vet ./...
+
+  test-and-build:
+    name: Test and Build
+    runs-on: ubuntu-24.04
+    needs: [prepare, lint, vet]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download api gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Download web gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen
+
+      - name: Install libvirt and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            pkg-config \
+            gcc \
+            libc6-dev \
+            qemu-system-x86 \
+            libvirt-daemon-system \
+            libvirt-clients
+
+      - name: Start libvirtd
+        run: |
+          sudo systemctl enable --now libvirtd
+          sudo usermod -aG libvirt $USER
+          sudo usermod -aG kvm $USER
+          # Relax permissions on the socket for the runner user
+          sudo chmod 666 /var/run/libvirt/libvirt-sock
+          # Wait for libvirt to be ready
+          timeout 30s bash -c 'until sudo virsh -c qemu:///system version; do sleep 1; done'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+          cache: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        env:
+          JWT_SECRET: "ci-secret-at-least-16-chars-long"
+        run: pnpm test:unit
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: apps/api/coverage.out
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Build web UI (static export)
+        env:
+          NEXT_PUBLIC_API_URL: ""
+        run: |
+          pnpm --filter web build
+
+      - name: Build single binary (API + embedded web)
+        env:
+          CGO_ENABLED: 1
+        run: |
+          cd apps/api
+          rm -rf internal/router/web || true
+          mkdir -p internal/router/web
+          cp -r ../web/out/* internal/router/web/
+          go build \
+            -ldflags="-s -w -X main.version=ci-$(git rev-parse --short HEAD)" \
+            -o lab-server \
+            ./cmd/server
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-server-ci
+          path: apps/api/lab-server
+          retention-days: 7
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-24.04
+    needs: test-and-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download api gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: api-gen
+          path: apps/api/gen
+
+      - name: Download web gen code
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gen
+          path: apps/web/lib/gen
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: |
+          pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lab-server-ci
+          path: apps/api
+
+      - name: Make binary executable
+        run: chmod +x apps/api/lab-server
+
+      - name: Install libvirt and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            pkg-config \
+            gcc \
+            libc6-dev \
+            libvirt-daemon-system \
+            libvirt-clients \
+            qemu-system-x86
+
+      - name: Start libvirtd
+        run: |
+          sudo systemctl enable --now libvirtd
+          sudo usermod -aG libvirt $USER
+          sudo usermod -aG kvm $USER
+          # Relax permissions on the socket for the runner user
+          sudo chmod 666 /var/run/libvirt/libvirt-sock
+          # Wait for libvirt to be ready
+          timeout 30s bash -c 'until sudo virsh -c qemu:///system version; do sleep 1; done'
+
+      - name: Run E2E tests
+        env:
+          LAB_BINARY_PATH: ${{ github.workspace }}/apps/api/lab-server
+          JWT_SECRET: "ci-secret-at-least-16-chars-long"
+          LIBVIRT_URI: "qemu:///system"
+          NEXT_PUBLIC_API_URL: "http://localhost:8080"
+        run: |
+          pnpm --filter web test:e2e
+        continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

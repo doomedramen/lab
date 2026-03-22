@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package lab.v1;
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// OsType represents the operating system family
+enum OsType {
+  OS_TYPE_UNSPECIFIED = 0;
+  OS_TYPE_LINUX = 1;
+  OS_TYPE_WINDOWS = 2;
+  OS_TYPE_SOLARIS = 3;
+  OS_TYPE_OTHER = 4;
+}
+
+// NetworkType represents the network attachment type
+enum NetworkType {
+  NETWORK_TYPE_UNSPECIFIED = 0;
+  NETWORK_TYPE_USER = 1;
+  NETWORK_TYPE_BRIDGE = 2;
+}
+
+// NetworkModel represents the NIC emulation model
+enum NetworkModel {
+  NETWORK_MODEL_UNSPECIFIED = 0;
+  NETWORK_MODEL_VIRTIO = 1;
+  NETWORK_MODEL_E1000 = 2;
+  NETWORK_MODEL_RTL8139 = 3;
+}
+
+// MachineType represents the QEMU machine type
+enum MachineType {
+  MACHINE_TYPE_UNSPECIFIED = 0;
+  MACHINE_TYPE_PC = 1;
+  MACHINE_TYPE_Q35 = 2;
+  MACHINE_TYPE_VIRT = 3;
+}
+
+// BiosType represents the firmware/BIOS type
+enum BiosType {
+  BIOS_TYPE_UNSPECIFIED = 0;
+  BIOS_TYPE_SEABIOS = 1;
+  BIOS_TYPE_OVMF = 2;
+}
+
+// CpuInfo represents CPU usage information for nodes
+message CpuInfo {
+  double used = 1;
+  double total = 2;
+  int32 cores = 3;
+}
+
+// CpuInfoPartial represents CPU info for VMs/Containers
+message CpuInfoPartial {
+  double used = 1;
+  int32 sockets = 2;
+  int32 cores = 3;
+}
+
+// MemoryInfo represents memory usage in GB
+message MemoryInfo {
+  double used = 1;
+  double total = 2;
+}
+
+// DiskInfo represents disk usage in GB
+message DiskInfo {
+  double used = 1;
+  double total = 2;
+}
+
+// SwapInfo represents swap usage in GB
+message SwapInfo {
+  double used = 1;
+  double total = 2;
+}
+
+// LoadAvg represents 1, 5, and 15 minute load averages
+message LoadAvg {
+  double one = 1;
+  double five = 2;
+  double fifteen = 3;
+}
+
+// ActionResponse is returned from lifecycle action RPCs
+message ActionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// OsConfig represents structured OS identification
+message OsConfig {
+  OsType os_type = 1;
+  string version = 2;
+}
+
+// NetworkConfig represents a network interface configuration
+message NetworkConfig {
+  NetworkType type = 1;
+  string bridge = 2;
+  NetworkModel model = 3;
+  int32 vlan = 4;
+  // Port forwarding rules (for user-mode networking)
+  // Format: "host_port:guest_port" (e.g., "2222:22" for SSH)
+  repeated string port_forwards = 5;
+}
+
+// TimeSeriesPoint represents a single point in a time series
+message TimeSeriesPoint {
+  string time = 1;
+  double value = 2;
+}

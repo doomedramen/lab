@@ -1,0 +1,4 @@
+# Compiled binary (not the cmd/server/ source directory)
+/server
+bin/
+tmp/

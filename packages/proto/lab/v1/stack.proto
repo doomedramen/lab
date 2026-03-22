@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+service StackService {
+  rpc ListStacks(ListStacksRequest) returns (ListStacksResponse);
+  rpc GetStack(GetStackRequest) returns (GetStackResponse);
+  rpc CreateStack(CreateStackRequest) returns (CreateStackResponse);
+  rpc UpdateStack(UpdateStackRequest) returns (UpdateStackResponse);
+  rpc DeleteStack(DeleteStackRequest) returns (DeleteStackResponse);
+  rpc StartStack(StackActionRequest) returns (ActionResponse);
+  rpc StopStack(StackActionRequest) returns (ActionResponse);
+  rpc RestartStack(StackActionRequest) returns (ActionResponse);
+  rpc UpdateStackImages(StackActionRequest) returns (ActionResponse);
+  rpc DownStack(StackActionRequest) returns (ActionResponse);
+  rpc GetContainerToken(GetContainerTokenRequest) returns (GetContainerTokenResponse);
+  rpc GetStackLogsToken(GetStackLogsTokenRequest) returns (GetStackLogsTokenResponse);
+}
+
+// StackStatus represents the overall status of a stack
+enum StackStatus {
+  STACK_STATUS_UNSPECIFIED = 0;
+  STACK_STATUS_RUNNING = 1;
+  STACK_STATUS_PARTIALLY_RUNNING = 2;
+  STACK_STATUS_STOPPED = 3;
+}
+
+// DockerContainer represents a running (or stopped) Docker container within a stack
+message DockerContainer {
+  string service_name   = 1;
+  string container_name = 2;
+  string container_id   = 3;
+  string image          = 4;
+  string status         = 5;  // display string e.g. "Up 2 hours"
+  string state          = 6;  // "running" | "exited" | "created" etc.
+  repeated string ports = 7;  // ["0.0.0.0:8080->80/tcp"]
+}
+
+message Stack {
+  string id                           = 1;
+  string name                         = 2;
+  string compose                      = 3;  // docker-compose.yml content
+  string env                          = 4;  // .env content
+  StackStatus status                  = 5;
+  repeated DockerContainer containers = 6;
+  string created_at                   = 7;
+}
+
+message ListStacksRequest {}
+
+message ListStacksResponse {
+  repeated Stack stacks = 1;
+}
+
+message GetStackRequest {
+  string id = 1;
+}
+
+message GetStackResponse {
+  Stack stack = 1;
+}
+
+message CreateStackRequest {
+  string name    = 1;
+  string compose = 2;
+  string env     = 3;
+}
+
+message CreateStackResponse {
+  Stack stack = 1;
+}
+
+message UpdateStackRequest {
+  string id      = 1;
+  string compose = 2;
+  string env     = 3;
+}
+
+message UpdateStackResponse {
+  Stack stack = 1;
+}
+
+message DeleteStackRequest {
+  string id = 1;
+}
+
+message DeleteStackResponse {}
+
+message StackActionRequest {
+  string id = 1;
+}
+
+message GetContainerTokenRequest {
+  string stack_id        = 1;
+  string container_name  = 2;
+}
+
+message GetContainerTokenResponse {
+  string token = 1;
+}
+
+message GetStackLogsTokenRequest {
+  string stack_id = 1;
+}
+
+message GetStackLogsTokenResponse {
+  string token = 1;
+}

@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// SnapshotService provides VM snapshot management
+service SnapshotService {
+  // List snapshots for a VM
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+  
+  // Create a new snapshot
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+  
+  // Delete a snapshot
+  rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse);
+  
+  // Restore a VM to a snapshot state
+  rpc RestoreSnapshot(RestoreSnapshotRequest) returns (RestoreSnapshotResponse);
+  
+  // Get detailed information about a snapshot
+  rpc GetSnapshotInfo(GetSnapshotInfoRequest) returns (GetSnapshotInfoResponse);
+}
+
+// SnapshotStatus represents the operational status of a snapshot
+enum SnapshotStatus {
+  SNAPSHOT_STATUS_UNSPECIFIED = 0;
+  SNAPSHOT_STATUS_CREATING = 1;
+  SNAPSHOT_STATUS_READY = 2;
+  SNAPSHOT_STATUS_DELETING = 3;
+  SNAPSHOT_STATUS_ERROR = 4;
+}
+
+// Snapshot represents a VM snapshot with its metadata
+message Snapshot {
+  string id = 1;                    // Unique snapshot identifier
+  int32 vmid = 2;                   // VM ID this snapshot belongs to
+  string name = 3;                  // Snapshot name
+  string description = 4;           // Optional description
+  string created_at = 5;            // Creation timestamp (RFC3339)
+  string parent_id = 6;             // Parent snapshot ID (for snapshot trees)
+  int64 size_bytes = 7;             // Snapshot size in bytes
+  SnapshotStatus status = 8;        // Current status
+  string vm_state = 9;              // VM state when snapshot was taken (running/stopped)
+  bool has_children = 10;           // Whether this snapshot has child snapshots
+}
+
+// SnapshotTree represents a hierarchical view of snapshots
+message SnapshotTree {
+  Snapshot snapshot = 1;
+  repeated SnapshotTree children = 2;
+}
+
+// ListSnapshotsRequest requests snapshots for a specific VM
+message ListSnapshotsRequest {
+  int32 vmid = 1;  // VM ID to list snapshots for
+}
+
+// ListSnapshotsResponse contains a list of snapshots
+message ListSnapshotsResponse {
+  repeated Snapshot snapshots = 1;
+  SnapshotTree tree = 2;  // Hierarchical view of snapshots
+}
+
+// CreateSnapshotRequest creates a new snapshot
+message CreateSnapshotRequest {
+  int32 vmid = 1;           // VM ID to snapshot
+  string name = 2;          // Snapshot name (required)
+  string description = 3;   // Optional description
+  bool live = 4;            // Create snapshot while VM is running (default: false)
+  bool include_memory = 5;  // Include VM memory state (requires live=true)
+}
+
+// CreateSnapshotResponse returns the created snapshot
+message CreateSnapshotResponse {
+  Snapshot snapshot = 1;
+  string task_id = 2;  // Task ID for tracking long-running operations
+}
+
+// DeleteSnapshotRequest deletes a snapshot
+message DeleteSnapshotRequest {
+  int32 vmid = 1;           // VM ID
+  string snapshot_id = 2;   // Snapshot ID to delete
+  bool include_children = 3; // Also delete child snapshots (default: false)
+}
+
+// DeleteSnapshotResponse confirms deletion
+message DeleteSnapshotResponse {
+  string task_id = 1;  // Task ID for tracking long-running operations
+}
+
+// RestoreSnapshotRequest restores a VM to a snapshot state
+message RestoreSnapshotRequest {
+  int32 vmid = 1;         // VM ID
+  string snapshot_id = 2; // Snapshot ID to restore
+  bool start_after = 3;   // Start VM after restore (if it was running)
+}
+
+// RestoreSnapshotResponse confirms restore operation
+message RestoreSnapshotResponse {
+  string task_id = 1;  // Task ID for tracking long-running operations
+}
+
+// GetSnapshotInfoRequest requests detailed snapshot information
+message GetSnapshotInfoRequest {
+  int32 vmid = 1;           // VM ID
+  string snapshot_id = 2;   // Snapshot ID
+}
+
+// GetSnapshotInfoResponse contains detailed snapshot information
+message GetSnapshotInfoResponse {
+  Snapshot snapshot = 1;
+  SnapshotTree tree = 2;  // Full tree for context
+}

@@ -1,0 +1,43 @@
+# Go test - Unit tests
+# Usage: docker build --platform linux/amd64 -f Dockerfile.test -t lab-test . && docker run --rm lab-test
+# IMPORTANT: Always build as linux/amd64 for CI consistency
+FROM --platform=linux/amd64 ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/root/go/bin:/usr/local/go/bin:${PATH}"
+ENV GOVERSION="1.25.7"
+ENV JWT_SECRET="test-secret-at-least-32-characters-long"
+
+# Install system dependencies including libvirt
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    make \
+    gcc \
+    libc6-dev \
+    pkg-config \
+    libvirt-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go (always amd64 for CI consistency)
+RUN wget -O go.tar.gz "https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz" && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf go.tar.gz && \
+    rm go.tar.gz
+
+WORKDIR /app
+
+# Copy go.mod and go.sum first for better caching
+COPY apps/api/go.mod apps/api/go.sum ./apps/api/
+RUN cd apps/api && go mod download
+
+# Copy source code
+COPY . .
+
+# Run tests
+WORKDIR /app/apps/api
+RUN go test -v -short ./...
+
+CMD ["echo", "go test completed successfully"]

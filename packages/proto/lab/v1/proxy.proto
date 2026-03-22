@@ -1,0 +1,249 @@
+syntax = "proto3";
+
+package lab.v1;
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// ProxyService manages domain-based reverse proxy hosts, TLS, and uptime monitoring.
+service ProxyService {
+  // Proxy host CRUD
+  rpc CreateProxyHost(CreateProxyHostRequest) returns (CreateProxyHostResponse);
+  rpc GetProxyHost(GetProxyHostRequest)       returns (GetProxyHostResponse);
+  rpc ListProxyHosts(ListProxyHostsRequest)   returns (ListProxyHostsResponse);
+  rpc ListProxyHostsByTarget(ListProxyHostsByTargetRequest) returns (ListProxyHostsByTargetResponse);
+  rpc UpdateProxyHost(UpdateProxyHostRequest) returns (UpdateProxyHostResponse);
+  rpc DeleteProxyHost(DeleteProxyHostRequest) returns (DeleteProxyHostResponse);
+  rpc GetProxyStatus(GetProxyStatusRequest)   returns (GetProxyStatusResponse);
+  rpc UploadCert(UploadCertRequest)           returns (UploadCertResponse);
+
+  // Uptime monitoring CRUD
+  rpc CreateMonitor(CreateMonitorRequest)           returns (CreateMonitorResponse);
+  rpc GetMonitor(GetMonitorRequest)                 returns (GetMonitorResponse);
+  rpc ListMonitors(ListMonitorsRequest)             returns (ListMonitorsResponse);
+  rpc UpdateMonitor(UpdateMonitorRequest)           returns (UpdateMonitorResponse);
+  rpc DeleteMonitor(DeleteMonitorRequest)           returns (DeleteMonitorResponse);
+  rpc GetMonitorHistory(GetMonitorHistoryRequest)   returns (GetMonitorHistoryResponse);
+  rpc GetMonitorStats(GetMonitorStatsRequest)       returns (GetMonitorStatsResponse);
+}
+
+// ProxySSLMode defines how TLS is handled for a proxy host.
+enum ProxySSLMode {
+  PROXY_SSL_MODE_UNSPECIFIED = 0;
+  PROXY_SSL_MODE_NONE        = 1; // Plain HTTP only
+  PROXY_SSL_MODE_SELF_SIGNED = 2; // Auto-generated self-signed certificate
+  PROXY_SSL_MODE_ACME        = 3; // Let's Encrypt / ZeroSSL via ACME
+  PROXY_SSL_MODE_CUSTOM      = 4; // User-uploaded certificate and key
+}
+
+// ProxyHost represents a reverse proxy host entry.
+message ProxyHost {
+  string id     = 1;
+  string domain = 2;       // e.g. "app.example.com"
+  string target_url = 3;   // e.g. "http://192.168.1.100:3000"
+  ProxySSLMode ssl_mode = 4;
+  bool   basic_auth_enabled = 5;
+  string basic_auth_user    = 6;
+  map<string, string> custom_request_headers  = 7;
+  map<string, string> custom_response_headers = 8;
+  bool   websocket_support = 9;
+  bool   enabled           = 10;
+  string created_at        = 11;
+  string updated_at        = 12;
+}
+
+// ProxyStatus is a live status snapshot for a proxy host.
+message ProxyStatus {
+  string proxy_host_id      = 1;
+  bool   is_running         = 2;
+  bool   backend_reachable  = 3;
+  string cert_expiry        = 4;
+  string last_check_at      = 5;
+}
+
+// UptimeMonitor is a configured health check for a URL.
+message UptimeMonitor {
+  string id                   = 1;
+  string name                 = 2;
+  string url                  = 3;
+  string proxy_host_id        = 4; // optional — links to a proxy host
+  int32  interval_seconds     = 5;
+  int32  timeout_seconds      = 6;
+  int32  expected_status_code = 7;
+  bool   enabled              = 8;
+  string created_at           = 9;
+  string updated_at           = 10;
+}
+
+// UptimeResult is a single check outcome.
+message UptimeResult {
+  string id               = 1;
+  string monitor_id       = 2;
+  int32  status_code      = 3;
+  int64  response_time_ms = 4;
+  bool   success          = 5;
+  string error            = 6;
+  string checked_at       = 7;
+}
+
+// UptimeStats contains aggregated statistics for a monitor.
+message UptimeStats {
+  string monitor_id          = 1;
+  string status              = 2; // "pending", "up", "down", "paused"
+  double uptime_percent_24h  = 3;
+  double uptime_percent_7d   = 4;
+  double avg_response_ms_24h = 5;
+  UptimeResult last_result   = 6;
+  repeated UptimeResult recent_results = 7;
+}
+
+// ---- Proxy host RPC messages ----
+
+message CreateProxyHostRequest {
+  string domain                                = 1;
+  string target_url                            = 2;
+  ProxySSLMode ssl_mode                        = 3;
+  bool   basic_auth_enabled                    = 4;
+  string basic_auth_user                       = 5;
+  string basic_auth_password                   = 6;
+  map<string, string> custom_request_headers   = 7;
+  map<string, string> custom_response_headers  = 8;
+  bool   websocket_support                     = 9;
+  bool   enabled                               = 10;
+}
+
+message CreateProxyHostResponse {
+  ProxyHost proxy_host = 1;
+}
+
+message GetProxyHostRequest {
+  string id = 1;
+}
+
+message GetProxyHostResponse {
+  ProxyHost proxy_host = 1;
+}
+
+message ListProxyHostsRequest {}
+
+message ListProxyHostsResponse {
+  repeated ProxyHost proxy_hosts = 1;
+  int32 total                    = 2;
+}
+
+// ListProxyHostsByTarget returns proxy hosts targeting a specific IP
+message ListProxyHostsByTargetRequest {
+  string target_ip = 1; // IP address to filter by (e.g., "192.168.1.100")
+}
+
+message ListProxyHostsByTargetResponse {
+  repeated ProxyHost proxy_hosts = 1;
+  int32 total                    = 2;
+}
+
+message UpdateProxyHostRequest {
+  string id                                    = 1;
+  string domain                                = 2;
+  string target_url                            = 3;
+  ProxySSLMode ssl_mode                        = 4;
+  bool   basic_auth_enabled                    = 5;
+  string basic_auth_user                       = 6;
+  string basic_auth_password                   = 7;
+  map<string, string> custom_request_headers   = 8;
+  map<string, string> custom_response_headers  = 9;
+  bool   websocket_support                     = 10;
+  bool   enabled                               = 11;
+}
+
+message UpdateProxyHostResponse {
+  ProxyHost proxy_host = 1;
+}
+
+message DeleteProxyHostRequest {
+  string id = 1;
+}
+
+message DeleteProxyHostResponse {}
+
+message GetProxyStatusRequest {
+  string id = 1;
+}
+
+message GetProxyStatusResponse {
+  ProxyStatus status = 1;
+}
+
+message UploadCertRequest {
+  string proxy_host_id = 1;
+  string cert_pem      = 2; // PEM-encoded certificate chain
+  string key_pem       = 3; // PEM-encoded private key
+}
+
+message UploadCertResponse {}
+
+// ---- Uptime monitor RPC messages ----
+
+message CreateMonitorRequest {
+  string name                 = 1;
+  string url                  = 2;
+  string proxy_host_id        = 3; // optional
+  int32  interval_seconds     = 4;
+  int32  timeout_seconds      = 5;
+  int32  expected_status_code = 6;
+  bool   enabled              = 7;
+}
+
+message CreateMonitorResponse {
+  UptimeMonitor monitor = 1;
+}
+
+message GetMonitorRequest {
+  string id = 1;
+}
+
+message GetMonitorResponse {
+  UptimeMonitor monitor = 1;
+}
+
+message ListMonitorsRequest {}
+
+message ListMonitorsResponse {
+  repeated UptimeMonitor monitors = 1;
+  int32 total                     = 2;
+}
+
+message UpdateMonitorRequest {
+  string id                   = 1;
+  string name                 = 2;
+  string url                  = 3;
+  int32  interval_seconds     = 4;
+  int32  timeout_seconds      = 5;
+  int32  expected_status_code = 6;
+  bool   enabled              = 7;
+}
+
+message UpdateMonitorResponse {
+  UptimeMonitor monitor = 1;
+}
+
+message DeleteMonitorRequest {
+  string id = 1;
+}
+
+message DeleteMonitorResponse {}
+
+message GetMonitorHistoryRequest {
+  string id    = 1;
+  int32  limit = 2; // default 100
+}
+
+message GetMonitorHistoryResponse {
+  repeated UptimeResult results = 1;
+}
+
+message GetMonitorStatsRequest {
+  string id = 1;
+}
+
+message GetMonitorStatsResponse {
+  UptimeStats stats = 1;
+}

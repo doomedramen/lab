@@ -1,0 +1,16 @@
+pre-commit:
+  parallel: true
+  commands:
+    # Web type checking only
+    # Backend validation runs in GitHub Actions CI (ubuntu-24.04, native x86_64)
+    web-types:
+      root: "apps/web"
+      run: pnpm check-types
+      glob: "*.{ts,tsx}"
+
+pre-push:
+  parallel: false
+  commands:
+    # Full validation runs in GitHub Actions CI (ubuntu-24.04, native x86_64)
+    # Local validation requires libvirt-dev packages (Linux only)
+    # ARM Mac developers: rely on CI for backend validation

@@ -1,0 +1,255 @@
+syntax = "proto3";
+
+package lab.v1;
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+// BackupService provides VM backup and restore operations
+service BackupService {
+  // List backups for a VM or all VMs
+  rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
+
+  // Get details of a specific backup
+  rpc GetBackup(GetBackupRequest) returns (GetBackupResponse);
+
+  // Create a new backup
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+
+  // Restore a VM from a backup
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+
+  // Delete a backup
+  rpc DeleteBackup(DeleteBackupRequest) returns (DeleteBackupResponse);
+
+  // Verify a backup's integrity
+  rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);
+
+  // List backup schedules
+  rpc ListBackupSchedules(ListBackupSchedulesRequest) returns (ListBackupSchedulesResponse);
+
+  // Create a backup schedule
+  rpc CreateBackupSchedule(CreateBackupScheduleRequest) returns (CreateBackupScheduleResponse);
+
+  // Update a backup schedule
+  rpc UpdateBackupSchedule(UpdateBackupScheduleRequest) returns (UpdateBackupScheduleResponse);
+
+  // Delete a backup schedule
+  rpc DeleteBackupSchedule(DeleteBackupScheduleRequest) returns (DeleteBackupScheduleResponse);
+
+  // Run a backup schedule manually
+  rpc RunBackupSchedule(RunBackupScheduleRequest) returns (RunBackupScheduleResponse);
+}
+
+// BackupType represents the type of backup
+enum BackupType {
+  BACKUP_TYPE_UNSPECIFIED = 0;
+  BACKUP_TYPE_FULL = 1;         // Full backup of all disks
+  BACKUP_TYPE_INCREMENTAL = 2;  // Incremental backup (changes since last backup)
+  BACKUP_TYPE_SNAPSHOT = 3;     // Snapshot-based backup
+}
+
+// BackupStatus represents the status of a backup operation
+enum BackupStatus {
+  BACKUP_STATUS_UNSPECIFIED = 0;
+  BACKUP_STATUS_PENDING = 1;    // Backup is queued
+  BACKUP_STATUS_RUNNING = 2;    // Backup is in progress
+  BACKUP_STATUS_COMPLETED = 3;  // Backup completed successfully
+  BACKUP_STATUS_FAILED = 4;     // Backup failed
+  BACKUP_STATUS_DELETING = 5;   // Backup is being deleted
+}
+
+// VerificationStatus represents the verification status of a backup
+enum VerificationStatus {
+  VERIFICATION_STATUS_UNSPECIFIED = 0;
+  VERIFICATION_STATUS_NOT_RUN = 1;    // Verification not yet run
+  VERIFICATION_STATUS_PENDING = 2;    // Verification in progress
+  VERIFICATION_STATUS_VERIFIED = 3;   // Backup verified successfully
+  VERIFICATION_STATUS_FAILED = 4;     // Verification failed
+}
+
+// Backup represents a VM backup
+message Backup {
+  string id = 1;                    // Unique backup identifier
+  int32 vmid = 2;                   // VM ID this backup belongs to
+  string vm_name = 3;               // VM name at time of backup
+  string name = 4;                  // Backup name/description
+  BackupType type = 5;              // Full, incremental, etc.
+  BackupStatus status = 6;          // Current status
+  int64 size_bytes = 7;             // Backup size in bytes
+  string storage_pool = 8;          // Storage pool where backup is stored
+  string backup_path = 9;           // Path to backup file
+  string created_at = 10;           // Creation timestamp (RFC3339)
+  string completed_at = 11;         // Completion timestamp
+  string expires_at = 12;           // Expiration timestamp (for retention)
+  string error_message = 13;        // Error message if failed
+  int32 retention_days = 14;        // Retention period in days
+  bool encrypted = 15;              // Whether backup is encrypted
+  string verified_at = 16;          // Last verification timestamp
+  VerificationStatus verification_status = 17; // Verification status
+  string verification_error = 18;   // Error message if verification failed
+}
+
+// BackupSchedule represents a scheduled backup job
+message BackupSchedule {
+  string id = 1;                    // Unique schedule identifier
+  string name = 2;                  // Schedule name
+  string entity_type = 3;           // "vm" or "container"
+  int32 entity_id = 4;              // VM or container ID
+  string storage_pool = 5;          // Target storage pool
+  string schedule = 6;              // Cron expression
+  BackupType backup_type = 7;       // Type of backup to create
+  int32 retention_days = 8;         // Retention period in days
+  bool enabled = 9;                 // Whether schedule is active
+  string created_at = 10;           // Creation timestamp
+  string updated_at = 11;           // Last update timestamp
+  string last_run_at = 12;          // Last execution timestamp
+  string next_run_at = 13;          // Next scheduled execution
+  int32 total_backups = 14;         // Total backups created
+  int32 retain_count = 15;          // Keep last N backups (0 = use days-based)
+  bool encrypt = 16;                // Encrypt backups by default
+}
+
+// ListBackupsRequest lists backups with optional filters
+message ListBackupsRequest {
+  int32 vmid = 1;                   // Filter by VM ID (0 = all VMs)
+  BackupStatus status = 2;          // Filter by status
+  string storage_pool = 3;          // Filter by storage pool
+}
+
+// ListBackupsResponse contains a list of backups
+message ListBackupsResponse {
+  repeated Backup backups = 1;
+  int32 total = 2;                  // Total count matching filters
+}
+
+// GetBackupRequest gets details of a specific backup
+message GetBackupRequest {
+  string backup_id = 1;             // Backup ID
+}
+
+// GetBackupResponse contains backup details
+message GetBackupResponse {
+  Backup backup = 1;
+}
+
+// CreateBackupRequest creates a new backup
+message CreateBackupRequest {
+  int32 vmid = 1;                   // VM ID to backup
+  string name = 2;                  // Backup name (optional)
+  BackupType type = 3;              // Backup type
+  string storage_pool = 4;          // Target storage pool
+  bool compress = 5;                // Enable compression
+  int32 retention_days = 6;         // Retention period (0 = forever)
+  bool encrypt = 7;                 // Enable encryption
+  string encryption_passphrase = 8; // Passphrase for encryption (required if encrypt=true)
+}
+
+// CreateBackupResponse returns the created backup
+message CreateBackupResponse {
+  Backup backup = 1;
+  string task_id = 2;               // Task ID for tracking
+}
+
+// RestoreBackupRequest restores a VM from a backup
+message RestoreBackupRequest {
+  string backup_id = 1;             // Backup ID to restore from
+  int32 target_vmid = 2;            // Target VM ID (0 = restore to original)
+  string target_node = 3;           // Target node (empty = original node)
+  bool start_after = 4;             // Start VM after restore
+  string decryption_passphrase = 5; // Passphrase for encrypted backups (required if backup is encrypted)
+}
+
+// RestoreBackupResponse returns restore operation details
+message RestoreBackupResponse {
+  string task_id = 1;               // Task ID for tracking
+  int32 target_vmid = 2;            // Actual target VM ID
+}
+
+// DeleteBackupRequest deletes a backup
+message DeleteBackupRequest {
+  string backup_id = 1;             // Backup ID to delete
+}
+
+// DeleteBackupResponse confirms deletion
+message DeleteBackupResponse {
+  string task_id = 1;               // Task ID for tracking
+}
+
+// VerifyBackupRequest verifies a backup's integrity
+message VerifyBackupRequest {
+  string backup_id = 1;             // Backup ID to verify
+}
+
+// VerifyBackupResponse returns verification results
+message VerifyBackupResponse {
+  bool success = 1;                 // Whether verification succeeded
+  string verified_at = 2;           // Verification timestamp
+  string error_message = 3;         // Error message if verification failed
+  string output = 4;                // Raw output from qemu-img check
+}
+
+// ListBackupSchedulesRequest lists backup schedules
+message ListBackupSchedulesRequest {
+  int32 entity_id = 1;              // Filter by entity ID (0 = all)
+  string entity_type = 2;           // Filter by entity type ("vm" or "container")
+}
+
+// ListBackupSchedulesResponse contains a list of schedules
+message ListBackupSchedulesResponse {
+  repeated BackupSchedule schedules = 1;
+}
+
+// CreateBackupScheduleRequest creates a new backup schedule
+message CreateBackupScheduleRequest {
+  string name = 1;                  // Schedule name
+  string entity_type = 2;           // "vm" or "container"
+  int32 entity_id = 3;              // Entity ID
+  string storage_pool = 4;          // Target storage pool
+  string schedule = 5;              // Cron expression
+  BackupType backup_type = 6;       // Backup type
+  int32 retention_days = 7;         // Retention period
+  bool enabled = 8;                 // Whether to enable immediately
+  int32 retain_count = 9;           // Keep last N backups (0 = use days-based)
+  bool encrypt = 10;                // Encrypt backups by default
+}
+
+// CreateBackupScheduleResponse returns the created schedule
+message CreateBackupScheduleResponse {
+  BackupSchedule schedule = 1;
+}
+
+// UpdateBackupScheduleRequest updates an existing schedule
+message UpdateBackupScheduleRequest {
+  string id = 1;                    // Schedule ID
+  string name = 2;                  // New name
+  string schedule = 3;              // New cron expression
+  BackupType backup_type = 4;       // New backup type
+  int32 retention_days = 5;         // New retention period
+  bool enabled = 6;                 // Enable/disable
+  int32 retain_count = 7;           // Keep last N backups (0 = use days-based)
+  bool encrypt = 8;                 // Encrypt backups by default
+}
+
+// UpdateBackupScheduleResponse returns the updated schedule
+message UpdateBackupScheduleResponse {
+  BackupSchedule schedule = 1;
+}
+
+// DeleteBackupScheduleRequest deletes a schedule
+message DeleteBackupScheduleRequest {
+  string id = 1;                    // Schedule ID
+}
+
+// DeleteBackupScheduleResponse confirms deletion
+message DeleteBackupScheduleResponse {}
+
+// RunBackupScheduleRequest manually runs a schedule
+message RunBackupScheduleRequest {
+  string id = 1;                    // Schedule ID
+}
+
+// RunBackupScheduleResponse returns the backup operation details
+message RunBackupScheduleResponse {
+  string task_id = 1;               // Task ID for tracking
+  string backup_id = 2;             // Created backup ID
+}

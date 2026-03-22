@@ -1,0 +1,145 @@
+# Multi-stage Dockerfile for local CI builds
+# Provides a consistent environment for running tests and builds locally
+# Intended for use in pre-push hooks (lefthook) and manual testing
+#
+# IMPORTANT: Build with --platform linux/amd64 for x86_64 emulation:
+#   docker build --platform linux/amd64 -f Dockerfile.ci -t lab-ci .
+#   docker-compose -f docker-compose.ci.yml ci (uses platform from compose file)
+
+# ============================================
+# Stage 1: Base - Install all dependencies
+# ============================================
+FROM --platform=linux/amd64 ubuntu:24.04 AS base
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/root/go/bin:/usr/local/go/bin:${PATH}"
+ENV GOVERSION="1.25.7"
+ENV NODEVERSION="22"
+ENV JWT_SECRET="ci-secret-at-least-16-chars-long"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    make \
+    gcc \
+    libc6-dev \
+    pkg-config \
+    libvirt-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go 1.25 (amd64)
+RUN wget -O go.tar.gz "https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz" \
+    && rm -rf /usr/local/go \
+    && tar -C /usr/local -xzf go.tar.gz \
+    && rm go.tar.gz
+
+# Verify Go installation
+RUN go version
+
+# Install Node.js 22 via nvm
+ENV NVM_DIR="/root/.nvm"
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+# Install Node.js and create symlinks
+RUN bash -c "source $NVM_DIR/nvm.sh && \
+    nvm install ${NODEVERSION} && \
+    nvm use ${NODEVERSION} && \
+    nvm alias default ${NODEVERSION} && \
+    NODE_DIR=$NVM_DIR/versions/node/\$(nvm version ${NODEVERSION}) && \
+    ln -sf \$NODE_DIR/bin/node /usr/local/bin/node && \
+    ln -sf \$NODE_DIR/bin/npm /usr/local/bin/npm && \
+    ln -sf \$NODE_DIR/bin/npx /usr/local/bin/npx && \
+    node --version && npm --version"
+
+# Verify Node.js
+RUN node --version && npm --version
+
+# Install pnpm 10.4.1
+RUN npm install -g pnpm@10.4.1 && \
+    ln -sf $NVM_DIR/versions/node/$(. $NVM_DIR/nvm.sh && nvm version ${NODEVERSION})/bin/pnpm /usr/local/bin/pnpm
+
+# Verify pnpm
+RUN pnpm --version
+
+# Install buf
+RUN wget -qO /usr/local/bin/buf "https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-x86_64" \
+    && chmod +x /usr/local/bin/buf
+
+# Install proto tools
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest \
+    && go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+
+# ============================================
+# Stage 2: test-and-build - Copy all code, run tests, and build
+# ============================================
+FROM base AS test-and-build
+
+WORKDIR /app
+
+# Copy all files from codebase
+COPY . .
+
+# Install all dependencies (this installs protoc-gen-es for web)
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Copy protoc-gen-es to /usr/local/bin
+RUN cp apps/web/node_modules/.bin/protoc-gen-es /usr/local/bin/protoc-gen-es
+
+# Verify proto tools are available
+RUN which protoc-gen-go && which protoc-gen-connect-go && which protoc-gen-es && buf --version
+
+# Debug: list what's in proto directory
+RUN ls -la packages/proto/
+
+# Generate proto files for API
+RUN cd packages/proto && buf generate --template buf.gen.api.yaml --verbose 2>&1 | tee /tmp/proto-api.log
+
+# Debug: check what was generated
+RUN ls -laR apps/api/gen/ || echo "No API gen files"
+
+# Generate proto files for Web
+RUN cd packages/proto && buf generate --template buf.gen.web.yaml --verbose 2>&1 | tee /tmp/proto-web.log
+
+# Debug: check what was generated
+RUN ls -laR apps/web/lib/gen/ || echo "No web gen files"
+
+# Run linters
+RUN pnpm lint
+RUN pnpm format --check
+RUN pnpm syncpack:lint || true
+
+# Build web UI (static export)
+ENV NEXT_PUBLIC_API_URL=""
+RUN pnpm --filter web build
+
+# Build API server
+RUN cd apps/api && go build -o bin/lab-server ./cmd/server
+
+# Run Go tests
+RUN cd apps/api && go test -v -short ./...
+
+# ============================================
+# Stage 3: Final - Copy binary only
+# ============================================
+FROM ubuntu:24.04 AS final
+
+# Minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libvirt-clients \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy built binary
+COPY --from=test-and-build /app/apps/api/bin/lab-server /app/lab-server
+
+# Make it executable
+RUN chmod +x /app/lab-server
+
+# Default command
+CMD ["/app/lab-server", "--help"]

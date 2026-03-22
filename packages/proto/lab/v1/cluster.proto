@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package lab.v1;
+
+import "lab/v1/common.proto";
+
+option go_package = "github.com/doomedramen/lab/apps/api/gen/lab/v1;labv1";
+
+service ClusterService {
+  rpc GetClusterSummary(GetClusterSummaryRequest) returns (GetClusterSummaryResponse);
+  rpc GetClusterMetrics(GetClusterMetricsRequest) returns (GetClusterMetricsResponse);
+  rpc QueryMetrics(QueryMetricsRequest) returns (QueryMetricsResponse);
+}
+
+message GetClusterSummaryRequest {}
+
+// EntityCounts holds total and running counts for an entity type
+message EntityCounts {
+  int32 total = 1;
+  int32 running = 2;
+}
+
+// CpuAggregate holds aggregated CPU information across the cluster
+message CpuAggregate {
+  int32 cores = 1;
+  double avg_usage = 2;
+}
+
+message GetClusterSummaryResponse {
+  EntityCounts nodes = 1;
+  EntityCounts vms = 2;
+  EntityCounts containers = 3;
+  EntityCounts stacks = 4;
+  CpuAggregate cpu = 5;
+  MemoryInfo memory = 6;
+  DiskInfo disk = 7;
+}
+
+message GetClusterMetricsRequest {
+  // number of data points; 0 means use default (24)
+  int32 points = 1;
+}
+
+message GetClusterMetricsResponse {
+  repeated TimeSeriesPoint cpu_usage = 1;
+  repeated TimeSeriesPoint memory_usage = 2;
+  repeated TimeSeriesPoint network_in = 3;
+  repeated TimeSeriesPoint network_out = 4;
+}
+
+// QueryMetricsRequest allows querying metrics with filters
+message QueryMetricsRequest {
+  string node_id = 1;
+  string resource_type = 2;
+  optional string resource_id = 3;
+  int64 start_time = 4;
+  int64 end_time = 5;
+  string aggregate = 6;
+  string group_by = 7;
+  bool host_only = 8;
+}
+
+// MetricPoint represents a single metric data point
+message MetricPoint {
+  string time = 1;
+  double value = 2;
+}
+
+// QueryMetricsResponse contains queried metrics
+message QueryMetricsResponse {
+  repeated MetricPoint metrics = 1;
+  int32 count = 2;
+}

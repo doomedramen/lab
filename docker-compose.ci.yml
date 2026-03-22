@@ -1,0 +1,82 @@
+services:
+  # Full CI build and test (mirrors GitHub Actions)
+  # Uses linux/amd64 platform for x86_64 emulation (needed for libvirt/qemu)
+  ci:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.ci
+      target: test-and-build
+    image: lab-ci:latest
+    # Mount output directory to extract built binary
+    volumes:
+      - ./apps/api/bin:/output
+    command: ["bash", "-c", "cp /app/apps/api/lab-server /output/ && echo 'Binary copied to ./apps/api/bin/'"]
+
+  # Quick test run (requires full CI build first)
+  test:
+    image: lab-ci:latest
+    working_dir: /app
+    platform: linux/amd64
+    environment:
+      JWT_SECRET: "ci-secret-at-least-16-chars-long"
+    volumes:
+      - ./apps:/app/apps
+      - ./packages:/app/packages
+      - ./package.json:/app/package.json:ro
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
+    command: ["pnpm", "test:unit"]
+
+  # Quick lint run (requires full CI build first)
+  lint:
+    image: lab-ci:latest
+    working_dir: /app
+    platform: linux/amd64
+    volumes:
+      - ./apps:/app/apps
+      - ./packages:/app/packages
+      - ./package.json:/app/package.json:ro
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
+    command: ["bash", "-c", "pnpm lint && pnpm format --check && pnpm syncpack:lint || true"]
+
+  # Quick Go vet run (requires full CI build first)
+  vet:
+    image: lab-ci:latest
+    working_dir: /app/apps/api
+    platform: linux/amd64
+    volumes:
+      - ./apps/api:/app/apps/api
+    command: ["go", "vet", "./..."]
+
+  # Interactive shell for debugging (requires full CI build first)
+  shell:
+    image: lab-ci:latest
+    working_dir: /app
+    platform: linux/amd64
+    environment:
+      JWT_SECRET: "ci-secret-at-least-16-chars-long"
+    volumes:
+      - ./apps:/app/apps
+      - ./packages:/app/packages
+      - ./package.json:/app/package.json:ro
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
+    command: ["/bin/bash"]
+    stdin_open: true
+    tty: true
+
+  # Build only (skip tests, requires web build first)
+  build:
+    image: lab-ci:latest
+    working_dir: /app/apps/api
+    platform: linux/amd64
+    environment:
+      NEXT_PUBLIC_API_URL: ""
+      CGO_ENABLED: "1"
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./apps/web/out:/app/apps/web/out:ro
+      - ./apps/api/bin:/output
+    command: ["bash", "-c", "rm -rf internal/router/web || true && mkdir -p internal/router/web && cp -r ../web/out/* internal/router/web/ && go build -ldflags=\"-s -w -X main.version=docker\" -o lab-server ./cmd/server && cp lab-server /output/"]
